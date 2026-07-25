@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan Bowl FRS</title>
+  <style>
+      /* for the future */
+      h1 {
+          color: #ff0000; /* Red */
+          text-decoration: underline;
+          font-family: 'Arial', sans-serif;
+      }
+
+      .timer-row {
+          display: inline-flex;
+          align-items: center;
+          gap: var(--timer-image-offset, 24px);
+          margin: 1rem 0 1.5rem;
+      }
+
+      #timer-display {
+          font-size: 2rem;
+          font-weight: bold;
+          min-width: 90px;
+          text-align: center;
+      }
+
+      .timer-side-image {
+          width: 48px;
+          height: 48px;
+          object-fit: contain;
+      }
+
+      div {
+          margin: 0.5rem 0;
+          font-size: 2rem;
+      }
+  </style>
+</head>
+<body>
+  <h1><i>Japan Bowl FRS</i></h1>
+  <h3>
+    Welcome to the Japan Bowl FRS! 
+    A custom self-practice mode and Final Round simulator 
+    for The United States National Japan Bowl.
+    
+  </h3>
+
+  <div class="timer-row" style="--timer-image-offset: 24px;">
+      <img class="timer-side-image" src="images/timer-placeholder.svg" alt="Left timer decoration">
+      <div id="timer-display">15</div>
+      <img class="timer-side-image" src="images/timer-placeholder.svg" alt="Right timer decoration">
+  </div>
+
+  <div id="game-area">
+      <div id="category-display">Category: history </div>
+      <div id="question-display">Question is here</div>
+      <div id="answer-display" style="display:none;">Answer is here</div>
+
+      <div id="score-display">Score : 0</div>
+
+      <button id="reveal-btn">Reveal Answer</button>
+
+
+      <button id="correct-btn" style="display:none;">✅ Correct (+1)</button>
+      <button id="wrong-btn" style="display:none;">❌ Wrong (0)</button>
+      <button id="next-btn" style="display:none;">Next Question ➡️</button>
+
+
+  </div>
+
+  <script>
+    // Javascript
+    const cardDeck = [
+         {
+        category: "History",
+        question: "What was the capital of Japan before Tokyo?",
+        answer: "Kyoto"
+    },
+    {
+        category: "Pop Culture",
+        question: "Which studio produced 'Spirited Away'?",
+        answer: "Studio Ghibli"
+    },
+    {
+        category: "Geography",
+        question: "What is the tallest mountain in Japan?",
+        answer: "Mount Fuji"
+    },
+    {
+        category: "History",
+        question: "In which year did the Meiji Restoration begin?",
+        answer: "1868"
+    },
+    {
+        category: "Food",
+        question: "What is the Japanese dish of vinegared rice with raw fish called?",
+        answer: "Sushi"
+    }
+    ]
+
+      let currentIndex = 0;
+      let score = 0;
+      let timer = 15;
+      let timerInterval = null;
+      let isAnswered = false;
+
+      const categoryDisplay = document.getElementById('category-display');
+      const questionDisplay = document.getElementById('question-display');
+      const answerDisplay = document.getElementById('answer-display');
+      const scoreDisplay = document.getElementById('score-display');
+      const timerDisplay = document.getElementById('timer-display');
+      const revealBtn = document.getElementById('reveal-btn');
+      const correctBtn = document.getElementById('correct-btn');
+      const wrongBtn = document.getElementById('wrong-btn');
+      const nextBtn = document.getElementById('next-btn');
+
+    function loadQuestion() {
+        // Get the current card from the deck
+        const card = cardDeck[currentIndex];
+        
+        // Update the display
+        categoryDisplay.textContent = `📂 Category: ${card.category}`;
+        questionDisplay.textContent = card.question;
+        answerDisplay.style.display = 'none';        // Hide answer
+        answerDisplay.textContent = `Answer: ${card.answer}`;
+        
+        // Reset timer
+        timer = 15;
+        
+        timerDisplay.textContent = `${timer}`;
+        
+        // Reset buttons
+        revealBtn.style.display = 'inline-block';
+        correctBtn.style.display = 'none';
+        wrongBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        
+        isAnswered = false;
+        
+        // Start the countdown
+        startTimer();
+    }
+
+    function startTimer() {
+
+      // clear any other timer
+
+      if (timerInterval) {
+        clearInterval(timerInterval)
+      }
+
+      timerInterval = setInterval(function() {
+        timer = timer - 1;
+        timerDisplay.textContent = `⏱️ ${timer}`;
+
+        if (timer <= 0) {
+          clearInterval(timerInterval);
+          timerDisplay.textContent = `Times up!`;
+
+          answerDisplay.style.display = 'block';
+
+          revealBtn.style.display = 'none';
+          correctBtn.style.display = 'inline-block';
+          wrongBtn.style.display = 'inline-block';
+
+          isAnswered = true;
+        }
+
+      })
+    }
+
+    function markCorrect() {
+      score = score + 1;
+      scoreDisplay.textContent = `Score: ${score}`;
+      afterAnswer();
+    }
+
+    function markWrong() {
+      afterAnswer();
+    }
+
+    function afterAnswer() {
+      correctBtn.style.display = 'none';
+      wrongBtn.style.display = 'none';
+      
+      if (currentIndex < deck.length - 1) {
+        nextBtn.style.display = 'inline-block';
+      } else {
+        questionDiplay.textContent = "You completd the deck!"
+        nextBtn.style.direction = 'none';
+      }
+    }
+
+    function nextQuestion() {
+      currentIndex = currentIndex + 1;
+      if (currentIndex < cardDeck.length) {
+        loadQuestion();
+      }
+    }
+
+    revealBtn.addEventListener('click', revealAnswwer);
+    correctBtn.addEventListener('click', markCorrect);
+    wrongBtn.addEventListener('click', markWrong);
+    nextBtn.addEventListener('click', nextQuestion);
+
+
+    loadQuestion();
+  </script>
+
+</body>
+</html>
