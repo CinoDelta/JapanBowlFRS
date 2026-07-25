@@ -4,67 +4,49 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Japan Bowl FRS</title>
-  <style>
-      /* for the future */
-      h1 {
-          color: #ff0000; /* Red */
-          text-decoration: underline;
-          font-family: 'Arial', sans-serif;
-      }
-
-      .timer-row {
-          display: inline-flex;
-          align-items: center;
-          gap: var(--timer-image-offset, 24px);
-          margin: 1rem 0 1.5rem;
-      }
-
-      #timer-display {
-          font-size: 2rem;
-          font-weight: bold;
-          min-width: 90px;
-          text-align: center;
-      }
-
-      .timer-side-image {
-          width: 48px;
-          height: 48px;
-          object-fit: contain;
-      }
-
-      div {
-          margin: 0.5rem 0;
-          font-size: 2rem;
-      }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1><i>Japan Bowl FRS</i></h1>
-  <h3>
-    Welcome to the Japan Bowl FRS! 
-    A custom self-practice mode and Final Round simulator 
-    for The United States National Japan Bowl.
-    
-  </h3>
+  <header class="page-header">
+    <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
+  </header>
 
-  <div class="timer-row" style="--timer-image-offset: 24px;">
-      <img class="timer-side-image" src="images/timer-placeholder.svg" alt="Left timer decoration">
-      <div id="timer-display">15</div>
-      <img class="timer-side-image" src="images/timer-placeholder.svg" alt="Right timer decoration">
-  </div>
+  <nav class="top-nav" aria-label="Primary navigation">
+    <div class="nav-border nav-border-top"></div>
+    <div class="nav-links">
+      <a href="index.html" class="active">Home</a>
+      <a href="singlePractice.html">Single Practice</a>
+      <a href="userPage.html">User Page</a>
+      <a href="uploadDeck.html">Upload Deck</a>
+    </div>
+    <div class="nav-border nav-border-bottom"></div>
+  </nav>
 
   <div id="game-area">
-      <div id="category-display">Category: history </div>
+
+      <div class="timer-row" style="--timer-image-offset: 24px;">
+        <img class="timer-side-image" src="images/Clock1.png" alt="Left timer decoration">
+        <div id="timer-display">15</div>
+        <img class="timer-side-image" src="images/Clock1.png" alt="Right timer decoration">
+        
+      </div>
+      <div id="score-display">Score : 0</div>
+
+      <div class="category-container">
+        <img class="category-image" src="images/Category.png" alt="Category icon">
+        <div id="category-display">Category: history </div>
+      </div>
+
       <div id="question-display">Question is here</div>
       <div id="answer-display" style="display:none;">Answer is here</div>
 
-      <div id="score-display">Score : 0</div>
+     
 
       <button id="reveal-btn">Reveal Answer</button>
 
 
-      <button id="correct-btn" style="display:none;">✅ Correct (+1)</button>
-      <button id="wrong-btn" style="display:none;">❌ Wrong (0)</button>
+      <button id="correct-btn" style="display:none;">O</button>
+      <button id="wrong-btn" style="display:none;">X</button>
       <button id="next-btn" style="display:none;">Next Question ➡️</button>
 
 
@@ -102,9 +84,11 @@
 
       let currentIndex = 0;
       let score = 0;
+      // in the future i want this to be a variable that can be set by the user, but for now it is hardcoded to 15 seconds
       let timer = 15;
       let timerInterval = null;
       let isAnswered = false;
+      let bonusPoints = 0;
 
       const categoryDisplay = document.getElementById('category-display');
       const questionDisplay = document.getElementById('question-display');
@@ -116,12 +100,17 @@
       const wrongBtn = document.getElementById('wrong-btn');
       const nextBtn = document.getElementById('next-btn');
 
+      const clocks = document.getElementsByClassName('timer-side-image');
+
+
     function loadQuestion() {
+
+        console.log("Loading question at index: " + currentIndex);
         // Get the current card from the deck
         const card = cardDeck[currentIndex];
         
         // Update the display
-        categoryDisplay.textContent = `📂 Category: ${card.category}`;
+        categoryDisplay.textContent = `${card.category}`;
         questionDisplay.textContent = card.question;
         answerDisplay.style.display = 'none';        // Hide answer
         answerDisplay.textContent = `Answer: ${card.answer}`;
@@ -138,7 +127,7 @@
         nextBtn.style.display = 'none';
         
         isAnswered = false;
-        
+
         // Start the countdown
         startTimer();
     }
@@ -153,7 +142,18 @@
 
       timerInterval = setInterval(function() {
         timer = timer - 1;
-        timerDisplay.textContent = `⏱️ ${timer}`;
+        timerDisplay.textContent = `${timer}`;
+
+        // change the image source of the clock based on the timer value (use placeholders for now)
+        if (clocks.length > 0) {
+          for (let img of clocks) {
+            if (timer % 2 == 0) {
+              img.src = 'images/Clock1.png';
+            } else {
+              img.src = 'images/Clock2.png';
+            }
+          }
+        }
 
         if (timer <= 0) {
           clearInterval(timerInterval);
@@ -168,11 +168,24 @@
           isAnswered = true;
         }
 
-      })
+      }, 1000)
     }
 
     function markCorrect() {
-      score = score + 1;
+
+      bonusPoints = 0;
+
+      if (timer > 13) {
+        bonusPoints = 3;
+      } else if (timer > 7) {
+        bonusPoints = 2;
+      } else if (time > 3) {
+        bonusPoints = 1;
+      } else {
+        bonusPoints = 0;
+      }
+
+      score = score + 1 + bonusPoints ; // Add 1 point for correct answer and bonus based on remaining time
       scoreDisplay.textContent = `Score: ${score}`;
       afterAnswer();
     }
@@ -181,14 +194,34 @@
       afterAnswer();
     }
 
+
+    function revealAnswer() {
+      if (isAnswered) return; // Already answered
+      
+      clearInterval(timerInterval); // Stop the timer
+      answerDisplay.style.display = 'block'; // Show the answer
+      
+      // Hide reveal button, show correct/wrong buttons
+      revealBtn.style.display = 'none';
+      correctBtn.style.display = 'inline-block';
+      wrongBtn.style.display = 'inline-block';
+      if (bonusPoints > 0) {
+        correctBtn.textContent = `O (+${bonusPoints} bonus points for time)`;
+      } else {
+        correctBtn.textContent = 'O';
+      }
+
+      isAnswered = true;
+  }
+
     function afterAnswer() {
       correctBtn.style.display = 'none';
       wrongBtn.style.display = 'none';
       
-      if (currentIndex < deck.length - 1) {
+      if (currentIndex < cardDeck.length - 1) {
         nextBtn.style.display = 'inline-block';
       } else {
-        questionDiplay.textContent = "You completd the deck!"
+        questionDisplay.textContent = "You completed the deck!"
         nextBtn.style.direction = 'none';
       }
     }
@@ -200,7 +233,7 @@
       }
     }
 
-    revealBtn.addEventListener('click', revealAnswwer);
+    revealBtn.addEventListener('click', revealAnswer);
     correctBtn.addEventListener('click', markCorrect);
     wrongBtn.addEventListener('click', markWrong);
     nextBtn.addEventListener('click', nextQuestion);

@@ -1,0 +1,241 @@
+/* for the future */
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 30px;
+    color: #ff6b6b;
+    text-shadow: 0 0 20px rgba(46, 23, 217, 0.3);
+}
+
+
+.timer-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--timer-image-offset, 24px);
+    margin: 1rem 0 1.5rem;
+}
+
+#timer-display {
+    font-size: 2rem;
+    font-weight: bold;
+    min-width: 90px;
+    text-align: center;
+}
+
+.timer-side-image {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    transform: scale(2);
+}
+
+.category-image {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    transform: scale(2);
+    flex-shrink: 0;
+}
+
+.category-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+div {
+    margin: 0.5rem 0;
+    font-size: 2rem;
+}
+
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #0a0e1a;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    margin: 0;
+    padding: 1.25rem 1rem 2rem;
+}
+
+.page-header {
+    width: 100%;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0.15rem 1.1rem 0.15rem;
+    background: rgba(40, 3, 29, 0.9);
+    border-radius: 16px;
+    border: 2px solid #fb9494;
+}
+
+.title-banner {
+    display: block;
+    width: min(80vw, 760px);
+    max-width: 100%;
+    height: auto;
+}
+
+.top-nav {
+    width: 100vw;
+    margin: 0 0 0.75rem;
+    border-radius: 0;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f4b6c2 0%, #e78aa7 100%);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+.nav-border {
+    width: 100%;
+    height: 18px;
+    background-image: url('images/nav-border-placeholder.svg');
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.nav-links {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.9rem 1rem;
+    flex-wrap: wrap;
+}
+
+.nav-links a {
+    color: #5a1633;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 0.2rem 1rem;
+    font-size: 1.5rem;
+    border-radius: 999px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+    background: rgba(255,255,255,0.5);
+    color: #2f0718;
+}
+
+.page-content {
+    width: 100%;
+    max-width: 700px;
+    text-align: center;
+}
+
+#game-area {
+    background: #030918;
+    padding: 40px;
+    border-radius: 20px;
+    width: 700px;
+    max-width: 95%;
+    box-shadow: 0 5px 20px rgba(143, 16, 39, 0.881);
+    border: 8px solid #a10e0e;
+    text-align: center;
+}
+
+
+#category-display {
+    font-size: 2.5rem;
+    color: #0a016c;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    -webkit-text-stroke: 1px rgb(255, 255, 255);
+}
+
+#timer-display {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #ffd54f;
+    margin: 10px 0;
+    font-variant-numeric: tabular-nums;
+}
+
+#question-display {
+    font-size: 1.8rem;
+    line-height: 1.4;
+    margin: 25px 0;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#answer-display {
+    font-size: 1.5rem;
+    font-family:Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+    color: #ffd13b;
+    background: #1a2744;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 15px 0;
+    border-left: 4px solid #ffd13b;
+    display: none; /* Hidden */
+}
+
+#score-display {
+    font-size: 2.5rem;
+    color: #ffb74d;
+    margin: 15px 0;
+    font-style: bold;
+    font-family:Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+}
+
+button {
+    padding: 12px 30px;
+    margin: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+button:hover {
+    transform: scale(1.01);
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+#reveal-btn {
+    background: #ae0d0d;
+    color: #ffffff;
+    outline: 1px solid hsl(244, 100%, 78%);
+}
+
+#correct-btn {
+    background: #310af3;
+    color: white;
+}
+
+#wrong-btn {
+    background: #f0110d;
+    color: white;
+}
+
+#next-btn {
+    background: #ffa726;
+    color: #0a0e1a;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
