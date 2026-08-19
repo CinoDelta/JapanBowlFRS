@@ -8,7 +8,6 @@ Outside of the classroom and meetings, this simulator is intended to increase th
 
 Future features:
 Importing quizlet decks (because there are a lot of them)
-Jud
 
 
 
