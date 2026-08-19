@@ -24,6 +24,38 @@
 
   <main class="page-content">
     <h2>Single Practice</h2>
+
+      <div id="game-area">
+
+      <div class="timer-row" style="--timer-image-offset: 24px;">
+        <img class="timer-side-image" src="images/Clock1.png" alt="Left timer decoration">
+        <div id="timer-display">15</div>
+        <img class="timer-side-image" src="images/Clock1.png" alt="Right timer decoration">
+        
+      </div>
+      <div id="score-display">Score : 0</div>
+
+      <div class="category-container">
+        <img class="category-image" src="images/Category.png" alt="Category icon">
+        <div id="category-display">Category: history </div>
+      </div>
+
+      <div id="question-display">Question is here</div>
+      <div id="answer-display" style="display:none;">Answer is here</div>
+
+     
+
+      <button id="reveal-btn">Reveal Answer</button>
+
+
+      <button id="correct-btn" style="display:none;">O</button>
+      <button id="wrong-btn" style="display:none;">X</button>
+      <button id="next-btn" style="display:none;">Next Question ➡️</button>
+
+
+  </div>
+    
+  <script src="deck.js"></script>
   </main>
 </body>
 </html>
