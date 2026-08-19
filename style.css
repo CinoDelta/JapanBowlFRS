@@ -133,7 +133,7 @@ body {
 .page-content {
     width: 100%;
     max-width: 700px;
-    text-align: center;
+    text-align: left;
 }
 
 #game-area {
@@ -238,4 +238,15 @@ button:active {
 button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+
+p {
+    font-size: 1.4rem;
+    text-align: left;
+}
+
+li {
+    font-size: 1.4rem;
+    list-style-type: dashed;;
 }
