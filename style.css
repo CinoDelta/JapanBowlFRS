@@ -98,7 +98,7 @@ body {
 }
 
 .nav-border {
-    width: 100%;
+    width: 0%;
     height: 18px;
     background-image: url('images/nav-border-placeholder.svg');
     background-size: cover;
