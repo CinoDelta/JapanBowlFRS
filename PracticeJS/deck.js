@@ -1,32 +1,22 @@
     // Javascript
-    const cardDeck = [
-         {
-        category: "History",
-        question: "What was the capital of Japan before Tokyo?",
-        answer: "Kyoto"
-    },
-    {
-        category: "Pop Culture",
-        question: "Which studio produced 'Spirited Away'?",
-        answer: "Studio Ghibli"
-    },
-    {
-        category: "Geography",
-        question: "What is the tallest mountain in Japan?",
-        answer: "Mount Fuji"
-    },
-    {
-        category: "History",
-        question: "In which year did the Meiji Restoration begin?",
-        answer: "1868"
-    },
-    {
-        category: "Food",
-        question: "What is the Japanese dish of vinegared rice with raw fish called?",
-        answer: "Sushi"
-    }
-    ]
 
+      // Load deck JSON (in browser, use fetch; remove Node-style require)
+      let cardDeck = [];
+
+      // Adjust the path below if your HTML is served from a different location.
+      fetch('PracticeJS/Decks/basicDeck.json')
+        .then(response => {
+          if (!response.ok) throw new Error('Network response was not ok');
+          return response.json();
+        })
+        .then(data => {
+          cardDeck = data;
+          console.log('Loaded deck:', cardDeck);
+          // Start the first question after the deck loads
+          loadQuestion();
+        })
+        .catch(err => console.error('Failed to load deck:', err));
+      
       let currentIndex = 0;
       let score = 0;
       // in the future i want this to be a variable that can be set by the user, but for now it is hardcoded to 15 seconds
@@ -52,7 +42,7 @@
 
         console.log("Loading question at index: " + currentIndex);
         // Get the current card from the deck
-        const card = cardDeck[currentIndex];
+        const card = cardDeck.cards[currentIndex];
         
         // Update the display
         categoryDisplay.textContent = `${card.category}`;
@@ -163,7 +153,7 @@
       correctBtn.style.display = 'none';
       wrongBtn.style.display = 'none';
       
-      if (currentIndex < cardDeck.length - 1) {
+      if (currentIndex < cardDeck.cards.length - 1) {
         nextBtn.style.display = 'inline-block';
       } else {
         questionDisplay.textContent = "You completed the deck!"
@@ -173,7 +163,7 @@
 
     function nextQuestion() {
       currentIndex = currentIndex + 1;
-      if (currentIndex < cardDeck.length) {
+      if (currentIndex < cardDeck.cards.length) {
         loadQuestion();
       }
     }
@@ -183,5 +173,3 @@
     wrongBtn.addEventListener('click', markWrong);
     nextBtn.addEventListener('click', nextQuestion);
 
-
-    loadQuestion();

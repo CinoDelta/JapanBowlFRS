@@ -1,0 +1,29 @@
+{
+    "cards": [
+        {
+            "category": "History",
+            "question": "What was the capital of Japan before Tokyo?",
+            "answer": "Kyoto"
+        },
+        {
+            "category": "Pop Culture",
+            "question": "Which studio produced 'Spirited Away'?",
+            "answer": "Studio Ghibli"
+        },
+        {
+            "category": "Geography",
+            "question": "What is the tallest mountain in Japan?",
+            "answer": "Mount Fuji"
+        },
+        {
+            "category": "History",
+            "question": "In which year did the Meiji Restoration begin?",
+            "answer": "1868"
+        },
+        {
+            "category": "Food",
+            "question": "What is the Japanese dish of vinegared rice with raw fish called?",
+            "answer": "Sushi"
+        }
+    ]
+}
