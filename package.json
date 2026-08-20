@@ -3,6 +3,6 @@
     "version": "1.0.0",
     "main": "index.js",
     "scripts": {
-        "start": "api/hello.js"
+        "start": "node index.js"
     }
 }
