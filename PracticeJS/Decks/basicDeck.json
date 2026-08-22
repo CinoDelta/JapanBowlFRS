@@ -1,6 +1,5 @@
 {
     "name": "defaultDeck",
-    "cardCount": 5,
     "cards": [
         {
             "category": "History",
@@ -28,5 +27,4 @@
             "answer": "Sushi"
         }
     ]
-
 }

@@ -57,12 +57,14 @@ async function loadDeck() {
         container.appendChild(newDeckOption);
     });
     console.log("done");
+
+    deckListHeader.textContent = "Public Deck List";
     
 }
 
 function filterList() {
     const filter = deckSearch.value.toLowerCase();
-    const options = container.options();
+    const options = container.options;
 
     for (let i = 0; i < options.length; i++) {
         const optionText = options[i].textContent.toLowerCase();
