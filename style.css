@@ -6,6 +6,9 @@ h1 {
     text-shadow: 0 0 20px rgba(46, 23, 217, 0.3);
 }
 
+.deck-select {
+    background-color: black;
+}
 
 .timer-row {
     display: inline-flex;
@@ -59,13 +62,36 @@ div {
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #1a0a13;
+    background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url('images/webiteBackground.png');
+
+    background-repeat: repeat;
     color: white;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
+    justify-content: center;
+    align-items: center;
     min-height: 100vh;
     margin: 0;
     padding: 1.25rem 1rem 2rem;
+    animation: scrollDiagonal 60s linear infinite, switchImages 1s linear infinite;
+}
+
+@keyframes scrollDiagonal {
+    0% {
+        background-position:0 0;
+    }
+    100% {
+        background-position: 1920px 1080px;
+    }
+}
+
+@keyframes switchImages {
+    0%, 49% {
+        background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url(images/webiteBackground1.png);
+    }
+    50%, 100% {
+        background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url(images/webiteBackground2.png);
+    }
 }
 
 .page-header {
@@ -130,15 +156,90 @@ body {
     text-align: center;
 }
 
+.page-content-two {
+    width: 100%;
+    max-width: 10000rem;
+    text-align: center;
+    background-color: #7a1a42;
+    border: 2px solid #ea7979;
+    border-radius: 10px;
+    text-shadow: 0 0 15px #000000;
+}
+
+.page-content-two h2 {
+    margin-top: 10px;
+}
+
+.page-content h2 {
+    margin-bottom: 10px;
+}
+
+#deckSearch {
+    background-color: rgb(48, 15, 180);
+    width: 50%;
+    height: 2rem;
+    border: 2px solid rgb(255, 255, 255);
+    border-radius: 10px;
+    color: #f4acf1;     
+    font-size: 14px;    
+    font-style: normal;  
+    font-weight: bold;    
+    letter-spacing: 1px;  
+    opacity: 1;  
+    margin-bottom: 1rem;
+    margin-top: 0.8rem;
+}
+
+
+input::placeholder {
+  color: #f4acf1;     
+  font-size: 14px;    
+  font-style: italic;  
+  font-weight: bold;    
+  letter-spacing: 1px;  
+  opacity: .5;           
+}
+
+#deckList {
+    margin-top: 2rem;
+    width: 70%;
+    height: 20rem;
+    border: 3px solid rgb(255, 122, 117);
+    border-radius: 10px;
+    background-color: #6c0c32;
+    scrollbar-width: none;
+    color: #ffd0a9;     
+    font-size: 1rem;    
+    font-style: italic;  
+    font-weight: bold;    
+    letter-spacing: 1px;     
+}
+
+#deckList option {
+    margin-top: 0.8rem;
+    margin-left: 1rem;
+    margin-right: 1rem;
+    margin-bottom: 0.8rem;
+    padding-top: 0.2rem;
+    font-style: bold;
+    font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    background-color: #e46f98;
+    text-align: center;
+    border: 5px dashed;
+    border-radius: 1rem;
+    font-size: 1.7rem;
+    height: 15%;
+}
+
 #game-area {
     background: #030918;
     padding: 40px;
     border-radius: 20px;
-    width: 700px;
-    max-width: 95%;
+    width: 100%;
     box-shadow: 0 5px 20px rgba(143, 16, 39, 0.881);
     border: 8px solid #a10e0e;
     text-align: center;
+    align-items: center;
 }
 
 .bigList {
@@ -151,6 +252,7 @@ body {
     color: #0a016c;
     font-weight: bold;
     text-transform: uppercase;
+    margin-right: 2rem;
     letter-spacing: 2px;
     -webkit-text-stroke: 1px rgb(255, 255, 255);
 }
@@ -159,7 +261,6 @@ body {
     font-size: 3rem;
     font-weight: bold;
     color: #ffd54f;
-    margin: 10px 0;
     font-variant-numeric: tabular-nums;
 }
 
@@ -173,7 +274,7 @@ body {
     justify-content: center;
 }
 
-hr {
+hr { 
     height: 1rem
 }
 
@@ -183,9 +284,11 @@ h1 {
     border: 2px solid rgb(255, 255, 255);
     padding-top: 1rem;
     padding-bottom:1rem;
-    padding-left: 0.8rem;
+    padding-left: 3rem;   
+    padding-right: 3rem;
     text-align: center;
 }
+
 
 #answer-display {
 

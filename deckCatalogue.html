@@ -16,14 +16,36 @@
     <div class="nav-links">
       <a href="index.html">Home</a>
       <a href="singlePractice.html">Single Practice</a>
-      <a href="userPage.html" class="active">User Page</a>
+      <a href="deckCatalogue.html" class="active">Deck Catalogue
+      </a>
       <a href="uploadDeck.html">Upload Deck</a>
     </div>
     <div class="nav-border nav-border-bottom"></div>
   </nav>
 
-  <main class="page-content">
-    <h2>User Page</h2>
+  <script src="PracticeJS/uploadDeck.js"></script>
+
+
+  <main class="page-content-two">
+    <h2 id="deckSearchHeader">Public Deck List</h2>
+      <input 
+      type="text"
+      id="deckSearch"
+      placeholder="Search the Catalogue..."
+      onkeyup="filterList()"
+      >
+
+
+
+  </main>
+
+  <main class="page-content-two" style="background-color: #00000000; border: 0px;">
+      <select id="deckList" size="2" multiple>
+        <option>
+          Skibidy toilet
+        </option>
+        
+      </select>
   </main>
 </body>
 </html>
