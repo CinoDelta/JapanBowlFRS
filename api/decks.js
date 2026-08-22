@@ -14,13 +14,16 @@ module.exports = async (req, res) => {
             const { blobs } = await list({
                 prefix: 'decks/'
             });
-            console.log('blobs found:', blobs.map(b => b.pathname));
+            
+            const deckBlobs = blobs.filter((blob) => blob.pathname.endsWith('.json'));
+            console.log('blobs found:', deckBlobs.map(b => b.pathname));
+
             const decks = await Promise.all(
                 // going through the list of the decks--
                 // .map applies a functinon to each blob and returns a new array with the new values
                 // in this case, that value is a "Promise" value that we wait for
                 // The "Promise.all" is waiting for the arroay of promises that this will return
-                blobs.map(async (blob) => {
+                deckBlobs.map(async (blob) => {
                     // the "blob" here is the file 
                     const id = blob.pathname.replace('decks/', '').replace('.json', ''); // decks/randomNonsense.json -> randomNonsense
                     /*

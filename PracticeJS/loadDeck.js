@@ -28,10 +28,14 @@ loadDecks();
 </script>
 */
 let imgCounter = 0;
-let currentSelectedDeckId = 0;
 const container = document.getElementById('deckListOne');
 const deckListHeader = document.getElementById('deckSearchHeader');
 const deckSearch = document.getElementById('deckSearch');
+const deckName = document.getElementById('thisDeckName');
+const deckCardCount = document.getElementById('thisDeckCardCount');
+
+let clientSidedDecks = {}
+let currentDeckId = 0;
 
 async function loadDeck() {
     console.log("fetching");
@@ -53,9 +57,11 @@ async function loadDeck() {
     data.decks.forEach(deck => {
         const newDeckOption = document.createElement('option');
         newDeckOption.textContent = deck.name;
-        currentSelectedDeckId = deck.id;
+        newDeckOption.setAttribute("myDeckId", deck.id);
         container.appendChild(newDeckOption);
     });
+
+    clientSidedDecks = data.decks;
     console.log("done");
 
     deckListHeader.textContent = "Public Deck List";
@@ -88,6 +94,20 @@ function sakuraSwitch() {
 
     imgCounter ++;
     imgCounter = imgCounter > 1 ? 0 : imgCounter;
+}
+
+function displayDeckInfo() {
+    let selectedIndex = container.selectedIndex;
+    let selectedOption = container.options[selectedIndex];
+
+    let currentDeckId = selectedOption.getAttribute("myDeckId");
+
+    let targetDeck = clientSidedDecks.find((deck) => deck.id === currentDeckId);
+    
+
+    deckCardCount.textContent = `<i>Card Count: </i> ${targetDeck.cardCount}`;
+    deckName.textContent = `<i>Deck Name: </i><u>${targetDeck.name}</u>`;
+
 }
 
 let sakuraInterval = null;
