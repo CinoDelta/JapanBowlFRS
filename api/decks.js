@@ -46,7 +46,7 @@ module.exports = async (req, res) => {
             res.end(JSON.stringify({ok : true, decks}));
             return;
         }
-    } catch {
+    } catch (err) {
         console.error('decks error: ', err);
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
