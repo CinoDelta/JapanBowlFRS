@@ -105,8 +105,8 @@ function displayDeckInfo() {
     let targetDeck = clientSidedDecks.find((deck) => deck.id === currentDeckId);
     
 
-    deckCardCount.textContent = `<i>Card Count: </i> ${targetDeck.cardCount}`;
-    deckName.textContent = `<i>Deck Name: </i><u>${targetDeck.name}</u>`;
+    deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
+    deckName.innerHTML = `<i>Deck Name: </i><u>${targetDeck.name}</u>`;
 
 }
 
