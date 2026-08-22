@@ -46,6 +46,7 @@ module.exports = async (req, res) => {
             res.end(JSON.stringify({ok : true, decks}));
             return;
         }
+        
     } catch (err) {
         console.error('decks error: ', err);
         res.statusCode = 500;

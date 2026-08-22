@@ -29,13 +29,14 @@ loadDecks();
 */
 let imgCounter = 0;
 let currentSelectedDeckId = 0;
+const container = document.getElementById('deckListOne');
+const deckListHeader = document.getElementById('deckSearchHeader');
+const deckSearch = document.getElementById('deckSearch');
 
 async function loadDeck() {
     console.log("fetching");
     const res = await fetch('/api/decks');
     const data = await res.json();
-    const container = document.getElementById('deckListOne');
-    const deckListHeader = document.getElementById('deckSearchHeader');
 
     deckListHeader.textContent = "Looking for decks...";
 
@@ -53,10 +54,26 @@ async function loadDeck() {
         const newDeckOption = document.createElement('option');
         newDeckOption.textContent = deck.name;
         currentSelectedDeckId = deck.id;
-        container.appendChildn(newDeckOption);
+        container.appendChild(newDeckOption);
     });
     console.log("done");
     
+}
+
+function filterList() {
+    const filter = deckSearch.value.toLowerCase();
+    const options = container.options();
+
+    for (let i = 0; i < options.length; i++) {
+        const optionText = options[i].textContent.toLowerCase();
+        
+        // 4. Check if the option text contains the search query
+        if (optionText.indexOf(filter) > -1) {
+        options[i].style.display = ""; // Show the option if it matches
+        } else {
+        options[i].style.display = "none"; // Hide the option if it doesn't match
+        }
+    }
 }
 
 
