@@ -23,8 +23,15 @@ h1 {
     min-width: 90px;
     text-align: center;
 }
-
+ /* images to fit */
 .timer-side-image {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    transform: scale(2);
+}
+
+.sakura-image{
     width: 48px;
     height: 48px;
     object-fit: contain;
@@ -36,7 +43,6 @@ h1 {
     height: 48px;
     object-fit: contain;
     transform: scale(2);
-    flex-shrink: 0;
 }
 
 .category-container {
@@ -63,7 +69,6 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #1a0a13;
     background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url('images/webiteBackground.png');
-
     background-repeat: repeat;
     color: white;
     display: flex;
@@ -160,14 +165,33 @@ body {
     width: 100%;
     max-width: 10000rem;
     text-align: center;
-    background-color: #7a1a42;
-    border: 2px solid #ea7979;
+    background-color: #ffa9e2;
+    border: 2px solid #f98383;
     border-radius: 10px;
-    text-shadow: 0 0 15px #000000;
+
 }
 
-.page-content-two h2 {
-    margin-top: 10px;
+.deck-header-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: 100%;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+.deck-header-row .sakura-image {
+    justify-self: center;
+}
+
+.deck-header-row h2 {
+    margin: 0;
+    color: rgb(255, 250, 192);
+    font-size: 2rem;
+    font-style: italic;
+    border-radius: 10px;
+    text-align: center;
+    justify-self: center;
 }
 
 .page-content h2 {
@@ -175,13 +199,13 @@ body {
 }
 
 #deckSearch {
-    background-color: rgb(48, 15, 180);
-    width: 50%;
-    height: 2rem;
+    background-color: rgb(89, 106, 214);
+    width: 75%;
+    height: 3rem;
     border: 2px solid rgb(255, 255, 255);
     border-radius: 10px;
     color: #f4acf1;     
-    font-size: 14px;    
+    font-size: 1.2rem;    
     font-style: normal;  
     font-weight: bold;    
     letter-spacing: 1px;  
@@ -193,29 +217,64 @@ body {
 
 input::placeholder {
   color: #f4acf1;     
-  font-size: 14px;    
+  font-size: 1.2rem;    
   font-style: italic;  
   font-weight: bold;    
   letter-spacing: 1px;  
   opacity: .5;           
 }
 
+.basicContainer {
+    display: flex;
+    gap: .5rem;
+    width: 100%
+}
+
 #deckList {
     margin-top: 2rem;
-    width: 70%;
-    height: 20rem;
+    width: 100%;
+    min-height: 22rem;
+    max-height: 50rem;
+    height: auto;
     border: 3px solid rgb(255, 122, 117);
     border-radius: 10px;
     background-color: #6c0c32;
     scrollbar-width: none;
     color: #ffd0a9;     
-    font-size: 1rem;    
-    font-style: italic;  
+    font-size: 2rem;    
     font-weight: bold;    
     letter-spacing: 1px;     
+    flex: 1rem;
+    display: block;
+    text-align: center;
+    justify-content: center;
 }
 
-#deckList option {
+#deckListOne {
+    margin-top: 2rem;
+    width: 100%;
+    min-height: 22rem;
+    max-height: 50rem;
+    height: auto;
+    border: 3px solid rgb(255, 122, 117);
+    border-radius: 10px;
+    background-color: #6c0c32;
+    scrollbar-width: none;
+    color: #ffd0a9;     
+    font-size: 2rem;    
+    font-weight: bold;    
+    letter-spacing: 1px;     
+    flex: 1rem;
+    display: block;
+    text-align: center;
+    justify-content: center;
+}
+
+#deckList p {
+    font-size: 2rem;
+}
+
+#deckListOne option {
     margin-top: 0.8rem;
     margin-left: 1rem;
     margin-right: 1rem;
@@ -228,8 +287,26 @@ input::placeholder {
     border: 5px dashed;
     border-radius: 1rem;
     font-size: 1.7rem;
+    font-style: italic;
     height: 15%;
 }
+
+#deckList button {
+    width: 90%;
+    min-height: 3.5rem;
+    max-height:6rem;
+    height: auto;
+    flex: 1;
+    background-color: #100442;
+    color: rgb(242, 177, 200);
+    border: 3px solid;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 2rem;
+    padding-bottom: 1rem;
+    margin-top: 1rem;
+    font-style: italic;
+}
+
 
 #game-area {
     background: #030918;

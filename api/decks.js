@@ -51,5 +51,5 @@ module.exports = async (req, res) => {
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ error: 'internal_server_error'}));
-    }r
-}  
+    }
+};
