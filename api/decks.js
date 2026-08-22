@@ -14,6 +14,7 @@ module.exports = async (req, res) => {
             const { blobs } = await list({
                 prefix: 'decks/'
             });
+            console.log('blobs found:', blobs.map(b => b.pathname));
             const decks = await Promise.all(
                 // going through the list of the decks--
                 // .map applies a functinon to each blob and returns a new array with the new values
@@ -46,7 +47,7 @@ module.exports = async (req, res) => {
             res.end(JSON.stringify({ok : true, decks}));
             return;
         }
-        
+
     } catch (err) {
         console.error('decks error: ', err);
         res.statusCode = 500;
