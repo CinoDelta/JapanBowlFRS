@@ -1,7 +1,5 @@
 // Javascript
 
-const deck = require("../api/deck");
-
 // Load deck JSON (in browser, use fetch; remove Node-style require)
 let cardDeck = [];
 
