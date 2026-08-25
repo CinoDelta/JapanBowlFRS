@@ -7,12 +7,8 @@ const params = new URLSearchParams(window.location.search);
 const deckId = params.get('id');
 
 async function loadDeck() {
-    const res = await fetch(`/api/decks`, 
-      {
-        method: "GET",
-        query: {id: deckId},
-      }
-    );
+    const res = await fetch(`/api/decks?id=${deckId}`); // the ?={} is the res.query. dont forget!
+    
     const data = await res.json();
     if (!data.ok) {
         alert('Could not load deck.');
