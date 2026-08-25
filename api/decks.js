@@ -1,87 +1,98 @@
-const {put, list} = require('@vercel/blob');
+const { createClient } = require("@supabase/supabase-js");
 
-
-// POST -> Upload a new deck!
-
-// GET -> list ALL decks
+const supabase = createClient(
+    process.env.SUPABSE_URL,
+    process.env.SUPABSE_SECRET_KEY
+);
 
 module.exports = async (req, res) => {
     try {
-        if (req.method === 'POST') {
+        if (req.method === "POST") {
+        
             const deck = req.body;
 
-            // If this isn't a deck we have to return a status code!!!
-            if (!deck || typeof deck.name !== 'string' || !Array.isArray(deck.cards)) {
-                res.statusCode == 400;
+            if (!deck || !Arrays.isArray(deck.cards) || typeof deck.name !== 'string') {
+                res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({error: 'invalid_deck', message: 'Expected {name, cards: [...] }'}));
+                res.end(JSON.stringify({ error: 'invalid_deck', message: 'Expected { name, cards: [...] }' }));
+                return;
+            }
+ 
+            const {data, error} = await supabase // object that contains data if succesful and error if not...
+            // the notes are for future me if i forget what this does
+            .from('decks') // get it from the decks table
+            .insert({name: deck.name, cards: deck.cards}) // insert a new row, give it a name and cards, id and time created is automatic
+            .select() // select this row specifically... yes this row please...
+
+            if (error) {
+                console.error('insert error:', error);
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'internal_server_error' }));
                 return;
             }
 
-            // generating a random id partially based on the current date/time.
-            const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-            const blob = await put( // put(fileName, content, config object)
-                `decks/${id}.json`, 
-                JSON.stringify(deck), 
-                {
-                    access: 'public',
-                    contentType: 'application/json',
-                    addRandomSuffix: false,
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ok : true, id: data.id}));
+            return;
+        } else if (res.method === "GET") {
+            const { id } = req.query;
+
+            // if we are looking for a specific deck
+            if (id) {
+                const { data, error } = await supabase
+                    .from('decks') // from the table, decks
+                    .select('id, name, cards') // i only need these 3 specifc columns (seperated in csv format, remember!)
+                    .eq('id', id) // does the id match the id that came as part of our query?
+                    .single(); // only one please
+                
+                if (error || !data) {
+                    res.statusCode = 404;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({error: 'not_found'}));
+                    return;
                 }
-            );
+
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ok: true, deck: data})); // access the result with res.deck!
+                return;
+            }
+
+            const {data, error} = await supabase 
+                .from('decks')
+                .select('id, name, cards')
+                .order('created_at', {ascending: false});
+            
+            if (error) {
+                console.error('list error:', error);
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({error: 'internal-server-error :('}));
+                return;
+            }
+
+            const decks = data.map((row) => ({
+                id: row.id,
+                name: row.name,
+                cardCount: Array.isArray(row.cards) ? row.cards.length : 0,
+            }));
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, id, url: blob.url}));
-            return;
-            
-        } else if (req.method === 'GET') {
-            const deck = req.body;
-            const { blobs } = await list({
-                prefix: 'decks/'
-            });
-            
-            const deckBlobs = blobs.filter((blob) => blob.pathname.endsWith('.json'));
-            console.log('blobs found:', deckBlobs.map(b => b.pathname));
-
-            const decks = await Promise.all(
-                // going through the list of the decks--
-                // .map applies a functinon to each blob and returns a new array with the new values
-                // in this case, that value is a "Promise" value that we wait for
-                // The "Promise.all" is waiting for the arroay of promises that this will return
-                deckBlobs.map(async (blob) => {
-                    // the "blob" here is the file 
-                    const id = blob.pathname.replace('decks/', '').replace('.json', ''); // decks/randomNonsense.json -> randomNonsense
-                    /*
-                     its not actually random nonsense, but it'll be the exact date, time + random number from 0 to 100,000 when the deck 
-                     upload function is created
-                    */
-                    try {
-                        const r = await fetch(blob.url);
-                        const deck = await r.json();
-                        
-                        return {
-                            id,
-                            name: deck?.name ?? 'Untitled deck',
-                            cardCount: Array.isArray(deck?.cards) ? deck.cards.length : 0,
-                            url: blob.url,
-                        };
-                    } catch {
-                        return {id, name: 'Untitled deck', cardCount: 0, url: blob.url};         
-                    }
-                })
-            );
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ok : true, decks}));
-            return;
+            res.end(JSON.stringify({ok: true, decks}));
         }
 
+        res.statusCode = 405;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({error: "method not allowed!! tsk tsk tsk"}));
+
     } catch (err) {
-        console.error('decks error: ', err);
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: 'internal_server_error'}));
+        res.end(JSON.stringify({error: 'internal_server_error'}));
     }
+
 };

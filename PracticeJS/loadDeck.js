@@ -33,11 +33,12 @@ const deckListHeader = document.getElementById('deckSearchHeader');
 const deckSearch = document.getElementById('deckSearch');
 const deckName = document.getElementById('thisDeckName');
 const deckCardCount = document.getElementById('thisDeckCardCount');
+const singlePracticebutton = document.getElementById('singlePracticeSelect');
 
 let clientSidedDecks = {}
 let currentDeckId = 0;
 
-async function loadDeck() {
+async function loadDecks() {
     console.log("fetching");
     const res = await fetch('/api/decks');
     const data = await res.json();
@@ -108,9 +109,15 @@ function displayDeckInfo() {
     deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
     deckName.innerHTML = `<i>Deck Name: </i><u>${targetDeck.name}</u>`;
 
+    singlePracticebutton.onclick = () => {
+        window.location.href = `singlePractice.html?id=${currentDeckId}`
+    }
+
+
 }
+
 
 let sakuraInterval = null;
 
 sakuraInterval = setInterval(sakuraSwitch, 500);
-loadDeck();
+loadDecks();
