@@ -40,12 +40,21 @@
     </ol>
     </i>
     
-    <form action="" method="POST">
-      <input  name="Deck" type="file"> 
+    <form id="uploadForm">
+      <input  id="deckFile" name="Deck" type="file" accept="application/json,.json">
+      <br> 
+      <button id="uploadButton" type="Submit">Upload Deck</button>
     </form>
   </div>
 
+  
+  <p style="text-align: center;" id="uploadStatus">Please choose a file.</p>
 
+  
   </main>
+
+
+  <script src="PracticeJS/uploadDeck.js"></script>
+
 </body>
 </html>

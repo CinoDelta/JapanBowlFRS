@@ -260,8 +260,14 @@ input::placeholder {
     letter-spacing: 1px;     
     flex: 1;
     text-align: center;
-    justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0.5rem;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 #deckListOne {
@@ -280,12 +286,15 @@ input::placeholder {
     flex: 1;
     text-align: center;
     justify-content: center;
-    box-sizing: border-box;
 }
 
 #deckList p {
     font-size: 2rem;
     color: rgb(255, 255, 255);
+    width: 100%;
+    margin: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 
 #deckListOne option {
@@ -310,18 +319,44 @@ input::placeholder {
 
 #deckList button {
     width: 90%;
-    min-height: 3.5rem;
-    max-height:6rem;
+    max-height: 6rem;
     height: auto;
-    flex: 1;
+    flex: 0 0 auto;
     background-color: #100442;
     color: rgb(242, 177, 200);
     border: 3px dashed;
     font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
     font-size: 2rem;
-    padding-bottom: 1rem;
-    margin-top: 1rem;
+    padding: 0rem 0.5rem;
+    margin: 0;
     font-style: italic;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+}
+
+/* Hey hello this is the mobile space*/
+@media (max-width: 700px) {
+    .basicFlexDiv {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    #deckList,
+    #deckListOne {
+        width: 100%;
+        min-height: 18rem;
+        max-height: 22rem;
+        height: 22rem;
+        margin-top: 1rem;
+    }
+
+    #deckListOne option {
+        font-size: 1.1rem;
+        margin-left: 0.3rem;
+        margin-right: 0.3rem;
+    }
 }
 
 
@@ -435,6 +470,18 @@ button:active {
     outline: 1px solid hsl(244, 100%, 78%);
 }
 
+#uploadButton {
+    background-color: #ffbaf7;
+    color: rgb(0, 0, 0);
+    padding: 10px 20px;
+    border: .2rem dashed white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    font-family: 'Courier New', Courier, monospace
+}
+
+
 #correct-btn {
     background: #310af3;
     color: white;
@@ -493,7 +540,12 @@ input[type="file"]::file-selector-button {
   font-family: 'Courier New', Courier, monospace
 }
 
+
 /* Add a hover effect */
 input[type="file"]::file-selector-button:hover {
   background-color: #ca95ff;
+}
+
+#uploadButton:hover {
+    background-color:rgb(rgb(65, 255, 129), green, blue);
 }
