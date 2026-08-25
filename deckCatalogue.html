@@ -44,7 +44,8 @@
 
   </main>
 
-  
+
+      <div class="basicFlexDiv">
 
       <select id="deckListOne" multiple size="1000" style="min-width: 15rem;" onchange="displayDeckInfo()">
         <option>
@@ -56,11 +57,11 @@
   
       <div id="deckList" style="background-color: #310c6c; border-color: rgb(129, 117, 255); color: #dda9ff;">
           <p id="thisDeckName" style="padding-left: 1rem; padding-right: 1rem; padding-top: .3rem; padding-bottom: .3rem;"> 
-            <i>Deck Name: </i> <u>The Best To Ever Do It</u>
+            <i style="color: rgb(255, 249, 86);">Deck Name: </i> <u>The Best To Ever Do It</u>
           </p>
 
           <p id="thisDeckCardCount" style="padding-left: 1rem; padding-right: 1rem; padding-top: .3rem; padding-bottom: .3rem;">
-              <i>Card Count:</i> 1000 cards
+              <i style="color: rgb(255, 249, 86);">Card Count:</i> 1000 cards
           </p>
 
           <button id="singlePracticeSelect" style="color: rgb(255, 151, 153);">
@@ -72,7 +73,7 @@
           </button>
       </div>
 
-
+      </div>
 
   <script src="PracticeJS/loadDeck.js"></script>
 </body>

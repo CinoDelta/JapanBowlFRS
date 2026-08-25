@@ -237,12 +237,19 @@ input::placeholder {
     width: 100%
 }
 
+.basicFlexDiv {
+    display:flex; 
+    gap: 10px;
+    padding-bottom: 1rem;
+    align-items: stretch;
+}
+
 #deckList {
     margin-top: 2rem;
-    width: 100%;
-    min-height: 22rem;
-    max-height: 50rem;
-    height: auto;
+    width: 50%;
+    min-height: 31rem;
+    max-height: 31rem;
+    height: 31rem;
     border: 3px solid rgb(255, 122, 117);
     border-radius: 10px;
     background-color: #6c0c32;
@@ -251,51 +258,54 @@ input::placeholder {
     font-size: 2rem;    
     font-weight: bold;    
     letter-spacing: 1px;     
-    flex: 1rem;
-    display: block;
+    flex: 1;
     text-align: center;
     justify-content: center;
+    box-sizing: border-box;
 }
 
 #deckListOne {
     margin-top: 2rem;
-    width: 100%;
-    min-height: 22rem;
-    max-height: 50rem;
-    height: auto;
+    width: 50%;
+    min-height: 31rem;
+    max-height: 31rem;
+    height: 31rem;
     border: 3px solid rgb(255, 122, 117);
     border-radius: 10px;
     background-color: #6c0c32;
     scrollbar-width: none;
     color: #ffd0a9;     
     font-size: 2rem;    
-    font-weight: bold;    
-    letter-spacing: 1px;     
-    flex: 1rem;
-    display: block;
+    font-weight: bold;      
+    flex: 1;
     text-align: center;
     justify-content: center;
+    box-sizing: border-box;
 }
 
 #deckList p {
     font-size: 2rem;
+    color: rgb(255, 255, 255);
 }
 
 #deckListOne option {
-    margin-top: 0.8rem;
-    margin-left: 1rem;
-    margin-right: 1rem;
-    margin-bottom: 0.8rem;
-    padding-top: 0.2rem;
+    margin-top: 0.35rem;
+    margin-left: 0.6rem;
+    margin-right: 0.6rem;
+    margin-bottom: 0.1rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.25rem;
     font-style: bold;
     font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
     background-color: #e46f98;
     text-align: center;
-    border: 5px dashed;
+    border: 3px dashed;
     border-radius: 1rem;
-    font-size: 1.7rem;
+    font-size: 1.4rem;
     font-style: italic;
-    height: 15%;
+    line-height: 1.2;
+    min-height: 2.2rem;
+    height: auto;
 }
 
 #deckList button {
@@ -306,7 +316,7 @@ input::placeholder {
     flex: 1;
     background-color: #100442;
     color: rgb(242, 177, 200);
-    border: 3px solid;
+    border: 3px dashed;
     font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
     font-size: 2rem;
     padding-bottom: 1rem;
