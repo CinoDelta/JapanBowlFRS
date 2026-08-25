@@ -10,7 +10,7 @@ async function loadDeck() {
     const res = await fetch(`/api/deck`, 
       {
         method: "GET",
-        query: id,
+        query: deckId,
       }
     );
     const data = await res.json();
