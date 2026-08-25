@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ok : true, id: data.id}));
             return;
-        } else if (res.method === "GET") {
+        } else if (req.method === "GET") {
             const { id } = req.query;
 
             // if we are looking for a specific deck
