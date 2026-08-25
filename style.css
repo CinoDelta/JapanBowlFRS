@@ -22,6 +22,7 @@ h1 {
     font-weight: bold;
     min-width: 90px;
     text-align: center;
+    font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
 }
  /* images to fit */
 .timer-side-image {
@@ -159,6 +160,13 @@ body {
     width: 100%;
     max-width: 700px;
     text-align: center;
+    background-color: #d85b5b;
+    padding-bottom: 2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    padding-top: 2rem;
+    border: .2rem solid white;
+    border-radius: .6rem;
 }
 
 .page-content-two {
@@ -166,9 +174,8 @@ body {
     max-width: 10000rem;
     text-align: center;
     background-color: #ffa9e2;
-    border: 2px solid #f98383;
-    border-radius: 10px;
-
+    border: .2rem solid #ffffff;
+    border-radius: .6rem;
 }
 
 .deck-header-row {
@@ -189,7 +196,7 @@ body {
     color: rgb(255, 250, 192);
     font-size: 2rem;
     font-style: italic;
-    border-radius: 10px;
+    border-radius: .6rem;
     text-align: center;
     justify-self: center;
 }
@@ -202,8 +209,8 @@ body {
     background-color: rgb(89, 106, 214);
     width: 75%;
     height: 3rem;
-    border: 2px solid rgb(255, 255, 255);
-    border-radius: 10px;
+    border: .2rem solid rgb(255, 255, 255);
+    border-radius: .6rem;
     color: #f4acf1;     
     font-size: 1.2rem;    
     font-style: normal;  
@@ -309,12 +316,12 @@ input::placeholder {
 
 
 #game-area {
-    background: #030918;
+    background: #180310;
     padding: 40px;
     border-radius: 20px;
     width: 100%;
     box-shadow: 0 5px 20px rgba(143, 16, 39, 0.881);
-    border: 8px solid #a10e0e;
+    border: .2rem solid #ffffff;
     text-align: center;
     align-items: center;
 }
@@ -358,7 +365,7 @@ hr {
 h1 {
     background-color: hsl(235, 69%, 14%);
     border-radius: 0.6rem;
-    border: 2px solid rgb(255, 255, 255);
+    border: .2rem solid rgb(255, 255, 255);
     padding-top: 1rem;
     padding-bottom:1rem;
     padding-left: 3rem;   
@@ -382,10 +389,15 @@ h1 {
 
 #score-display {
     font-size: 2.5rem;
-    color: #ffb74d;
+    color: #ffffff;
     margin: 15px 0;
     font-style: bold;
-    font-family:Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    background-color: rgb(33, 39, 140);
+    width: 100%;
+    border: .2rem solid rgb(255, 199, 199);
+    border-radius: .6rem;
+
 }
 
 button {
@@ -439,7 +451,39 @@ p {
     text-align: left;
 }
 
+.page-content-two p {
+    text-align: center;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+
 li {
     font-size: 1.4rem;
-    list-style-type: dashed;;
+    list-style-type: dashed;
+}
+
+form {
+    padding-bottom:1rem;
+    margin-top: 3rem;
+}
+
+input {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Target the "Choose File" button directly */
+input[type="file"]::file-selector-button {
+  background-color: #ffbaf7;
+  color: rgb(0, 0, 0);
+  padding: 10px 20px;
+  border: .2rem dashed white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  font-family: 'Courier New', Courier, monospace
+}
+
+/* Add a hover effect */
+input[type="file"]::file-selector-button:hover {
+  background-color: #ca95ff;
 }

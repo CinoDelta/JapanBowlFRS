@@ -9,6 +9,33 @@ module.exports = async (req, res) => {
     try {
         if (req.method === 'POST') {
             const deck = req.body;
+
+            // If this isn't a deck we have to return a status code!!!
+            if (!deck || typeof deck.name !== 'string' || !Array.isArray(deck.cards)) {
+                res.statusCode == 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({error: 'invalid_deck', message: 'Expected {name, cards: [...] }'}));
+                return;
+            }
+
+            // generating a random id partially based on the current date/time.
+            const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+            const blob = await put( // put(fileName, content, config object)
+                `decks/${id}.json`, 
+                JSON.stringify(deck), 
+                {
+                    access: 'public',
+                    contentType: 'application/json',
+                    addRandomSuffix: false,
+                }
+            );
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, id, url: blob.url}));
+            return;
+            
         } else if (req.method === 'GET') {
             const deck = req.body;
             const { blobs } = await list({
