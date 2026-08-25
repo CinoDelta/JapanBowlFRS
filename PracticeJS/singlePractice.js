@@ -7,7 +7,7 @@ const params = new URLSearchParams(window.location.search);
 const deckId = params.get('id');
 
 async function loadDeck() {
-    const res = await fetch(`/api/deck`, 
+    const res = await fetch(`/api/decks`, 
       {
         method: "GET",
         query: deckId,
