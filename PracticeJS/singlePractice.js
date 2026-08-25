@@ -19,6 +19,7 @@ async function loadDeck() {
         return;
     }
     cardDeck = data.deck
+    console.log(cardDeck);
 
     loadQuestion();
 }
