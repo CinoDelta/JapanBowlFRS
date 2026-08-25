@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
                 .from('decks') // get it from the decks table
                 .insert({name: deck.name, cards: deck.cards}) // insert a new row, give it a name and cards, id and time created is automatic
                 .select() // select this row specifically... yes this row please...
-                .single()
+                .single();
 
             if (error) {
                 console.error('insert error:', error);
