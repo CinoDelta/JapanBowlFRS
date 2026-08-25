@@ -51,10 +51,12 @@ document.getElementById('uploadForm').addEventListener('submit', async (event) =
         return;
     }
 
+    console.log(`deck: ${deck}`);
+
     const res = await fetch('/api/decks', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(deck)
+        body: JSON.stringify(deck),
     });
 
     const data = await res.json();

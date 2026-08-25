@@ -19,10 +19,10 @@ module.exports = async (req, res) => {
             }
  
             const {data, error} = await supabase // object that contains data if succesful and error if not...
-            // the notes are for future me if i forget what this does
-            .from('decks') // get it from the decks table
-            .insert({name: deck.name, cards: deck.cards}) // insert a new row, give it a name and cards, id and time created is automatic
-            .select() // select this row specifically... yes this row please...
+                .from('decks') // get it from the decks table
+                .insert({name: deck.name, cards: deck.cards}) // insert a new row, give it a name and cards, id and time created is automatic
+                .select() // select this row specifically... yes this row please...
+                .single()
 
             if (error) {
                 console.error('insert error:', error);
