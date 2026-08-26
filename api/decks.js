@@ -38,7 +38,8 @@ module.exports = async (req, res) => {
             res.end(JSON.stringify({ok : true, id: data.id}));
             return;
         } else if (req.method === "GET") {
-            const { id } = req.query;
+            const { id } = req.query
+            
 
             // if we are looking for a specific deck
             if (id) {
