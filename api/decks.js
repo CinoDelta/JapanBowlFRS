@@ -10,26 +10,20 @@ module.exports = async (req, res) => {
         if (req.method === "POST") {
         
             const deck = req.body;
-            console.log("POSTING");
-
-            if (!deck || !Arrays.isArray(deck.cards) || typeof deck.name !== 'string') {
+            
+            if (!deck || !Array.isArray(deck.cards) || typeof deck.name !== 'string') {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'invalid_deck', message: 'Expected { name, cards: [...] }' }));
                 return;
             }
 
-            console.log("After check");
-
-            console.log(`The deck's name is ${deck.name} and the cards is ${deck.cards.toString()}`);
- 
             const {data, error} = await supabase // object that contains data if succesful and error if not...
                 .from('decks') // get it from the decks table
                 .insert({name: deck.name, cards: deck.cards}) // insert a new row, give it a name and cards, id and time created is automatic
                 .select() // select this row specifically... yes this row please...
                 .single();
 
-            console.log("POST AWAIT")
 
             if (error) {
                 console.log(`ERROR IS ${error}`);
