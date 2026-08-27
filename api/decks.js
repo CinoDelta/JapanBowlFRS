@@ -19,6 +19,8 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            console.log("After check");
+
             console.log(`The deck's name is ${deck.name} and the cards is ${deck.cards.toString()}`);
  
             const {data, error} = await supabase // object that contains data if succesful and error if not...
@@ -27,7 +29,10 @@ module.exports = async (req, res) => {
                 .select() // select this row specifically... yes this row please...
                 .single();
 
+            console.log("POST AWAIT")
+
             if (error) {
+                console.log(`ERROR IS ${error}`);
                 console.error('insert error:', error);
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
