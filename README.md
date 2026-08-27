@@ -11,4 +11,6 @@ Outside of the classroom and meetings, this simulator is intended to increase th
 Future features:
 Importing decks of other formats
 
+# does he know
+
 Copyright (c) Daniel Opara. All Rights Reserved.
