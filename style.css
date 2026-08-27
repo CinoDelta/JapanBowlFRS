@@ -1,10 +1,42 @@
 /* for the future */
-h1 {
-    font-size: 2.5rem;
-    margin-bottom: 30px;
-    color: #ff6b6b;
-    text-shadow: 0 0 20px rgba(46, 23, 217, 0.3);
+
+
+
+
+.display-box {
+    width: 100%;
+    display:flex;
+    border-radius: .6rem;
+    justify-content:  start;
+    gap: 1rem;
 }
+
+
+h1 {
+    padding-top: 1rem;
+    padding-bottom:1rem;  
+    padding-right: 3rem;
+    padding-left: 1rem;
+    text-align: left;
+    font-size: 2.25rem;
+}
+
+
+
+
+
+.info-box {
+  position: relative;
+  background: rgba(40, 3, 25, 0.9); /* Your inner background color */
+  border-radius: 16px;
+  border: .2rem dashed white
+}
+
+.info-box p {
+    padding-left: 1rem;
+}
+
+
 
 .deck-select {
     background-color: black;
@@ -67,14 +99,13 @@ div {
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: Tahoma, Verdana, Segoe, sans-serif; font-size: 24px; font-style: normal;
     background: #1a0a13;
-    background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url('images/webiteBackground.png');
+    background-image: linear-gradient(rgba(26, 10, 19, 0.9), rgba(26, 10, 19, 0.9)), url('images/webiteBackground.png');
     background-repeat: repeat;
     color: white;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     min-height: 100vh;
     margin: 0;
@@ -93,10 +124,10 @@ body {
 
 @keyframes switchImages {
     0%, 49% {
-        background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url(images/webiteBackground1.png);
+        background-image: linear-gradient(rgba(26, 10, 19, 0.9), rgba(26, 10, 19, 0.9)), url(images/webiteBackground1.png);
     }
     50%, 100% {
-        background-image: linear-gradient(rgba(26, 10, 19, 0.8), rgba(26, 10, 19, 0.8)), url(images/webiteBackground2.png);
+        background-image: linear-gradient(rgba(26, 10, 19, 0.9), rgba(26, 10, 19, 0.9)), url(images/webiteBackground2.png);
     }
 }
 
@@ -120,11 +151,13 @@ body {
 }
 
 .top-nav {
-    width: 100vw;
-    height: auto;
+    width: 95%;
+    height: 4rem;
     margin: 0.5rem -1rem 1rem;
-    border-radius: 0;
+    border-radius: .6rem;
+    border: .3rem solid white;
     overflow: hidden;
+    position: sticky;
     background: linear-gradient(135deg, #f4b6c2 0%, #e78aa7 100%);
     box-shadow: 0 6px 18px rgba(0,0,0,0.25);
     border: 4rem solid linear-gradient(135deg, #f4b6c2 0%, #e78aa7 100%);
@@ -136,8 +169,8 @@ body {
     justify-content: center;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.9rem 1rem;
     flex-wrap: wrap;
+    font-family: Tahoma, Verdana, Segoe, sans-serif; font-size: 24px; font-style: normal;
 }
 
 .nav-links a {
@@ -406,18 +439,6 @@ input::placeholder {
 hr { 
     height: 1rem
 }
-
-h1 {
-    background-color: hsl(235, 69%, 14%);
-    border-radius: 0.6rem;
-    border: .2rem solid rgb(255, 255, 255);
-    padding-top: 1rem;
-    padding-bottom:1rem;
-    padding-left: 3rem;   
-    padding-right: 3rem;
-    text-align: center;
-}
-
 
 #answer-display {
 
