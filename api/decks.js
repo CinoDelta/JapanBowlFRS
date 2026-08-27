@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
                 console.error('insert error:', error);
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'internal_server_error' }));
+                res.end(JSON.stringify({ error }));
                 return;
             }
 
