@@ -17,6 +17,8 @@ module.exports = async (req, res) => {
                 res.end(JSON.stringify({ error: 'invalid_deck', message: 'Expected { name, cards: [...] }' }));
                 return;
             }
+
+            console.log(`The deck's name is ${deck.name} and the cards is ${deck.cards.toString()}`);
  
             const {data, error} = await supabase // object that contains data if succesful and error if not...
                 .from('decks') // get it from the decks table
@@ -28,7 +30,7 @@ module.exports = async (req, res) => {
                 console.error('insert error:', error);
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error }));
+                res.end(JSON.stringify({ error: 'internal_server_error' }));
                 return;
             }
 
