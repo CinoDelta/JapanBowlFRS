@@ -10,7 +10,7 @@ module.exports = async (req, res) => {
         if (req.method === "POST") {
         
             const deck = req.body;
-            
+                
             if (!deck || !Array.isArray(deck.cards) || typeof deck.name !== 'string') {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
