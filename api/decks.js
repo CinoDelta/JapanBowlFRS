@@ -10,6 +10,7 @@ module.exports = async (req, res) => {
         if (req.method === "POST") {
         
             const deck = req.body;
+            console.log("POSTING");
 
             if (!deck || !Arrays.isArray(deck.cards) || typeof deck.name !== 'string') {
                 res.statusCode = 400;
