@@ -4,7 +4,6 @@
 
 
 .display-box {
-    width: 100%;
     display:flex;
     border-radius: .6rem;
     justify-content:  start;
