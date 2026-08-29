@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan Bowl FRS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+</head>
+<body>
+
+  <nav class="top-nav" aria-label="Primary navigation">
+    <div class="nav-border nav-border-top"></div>
+    <div class="nav-links">
+      <a href="index.html" class="active">Back</a>
+    </div>
+    <div class="nav-border nav-border-bottom"></div>
+  </nav>
+
+  <div class="display-box" style="justify-content: left;">
+    <div class="info-box" style="width: 100%; text-align: left;"> 
+        <h2 id="form-title">Sign In to JFRS</h2>
+
+        
+        <form id = "auth-form" style="padding-left :1rem; margin-top: 0rem; padding-top: 0rem;">
+            <input id="email" type="email" placeholder="Email !" required>
+            <br>
+            <input id="email" type="password" placeholder="Password !" required>
+            <br>
+
+            <button type="submit" id = "submit-btn">Sign In</button>
+        </form>
+
+        <p id="auth-status"></p>
+
+        <p>
+            <i>Accountless? --> </i>
+            <a href="#" id="toggle-mode">
+                Sign Up!
+            </a>
+        </p>
+
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="PracticeJS/supabaseclient.js"></script>
+        
+
+        <script>
+            let mode = 'signin';
+
+            const formTitle = document.getElementById('form-title');
+            const submitBtn = document.getElementById('submit-btn');
+            const toggleLink = document.getElementById('toggle-mode');
+            const statusEl = document.getElementById('auth-status');
+
+            toggleLink.addEventListener('click',
+                (event) => {
+                    event.preventDefault();
+
+                    mode = mode === 'signin' ? 'signup' : 'signin';
+
+
+                    if (mode === 'signup') {
+                        formTitle.textContent = 'Sign Up for JFRS!';
+                        submitBtn.textContent = 'Sign Up';
+                        toggleLink.textContent = 'Already have an account? Sign in';
+                    } else {
+                        formTitle.textContent = 'Sign In to JFRS!';
+                        submitBtn.textContent = 'Sign In';
+                        toggleLink.textContent = 'Need an account? Sign up';
+                    }
+                    statusEl.textContent = '';
+                }
+            );
+
+            document.getElementById('auth-form').addEventListener('submit', async (event) => {
+
+                event.preventDefault();
+
+                const email = document.getElementById('email').value;
+
+                const password = document.getElementById('password').value;
+
+                statusEl.textContent = "Checkin the records...";
+
+                const {data, error } = mode === 'signup' ? 
+                await signUpWithEmail(email, password) :
+                await signInWithEmail(email, password);
+
+                if (error) {
+                    statusEl.textContent = error.message;
+                    return;
+                }
+
+                if (mode === 'signup' && !data.session) {
+                    statusEl.textContent = 'Check your email to confirm your account before signing in.';
+                    return;
+                }
+
+                window.location.href = 'index.html';
+            });
+        </script>
+
+    </div>
+  </div>
+
+
+
+
+  <br>
+
+
+
+  <br>
+
+
+
+
+
+
+
+</body>
+</html>

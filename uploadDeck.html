@@ -14,8 +14,9 @@
     <div class="nav-links">
       <a href="index.html">Home</a>
       <a href="deckCatalogue.html">Deck Catalogue</a>
-      <a href="uploadDeck.html" class="active">Upload Deck</a>
-    </div>
+      <a href="uploadDeck.html"class="active">Upload Deck</a>
+      <a href="login.html" id="auth-area">Sign In</a>
+      <button id="sign-out-btn" style="display: none; padding-top: 0rem; padding-bottom: 0rem;" onclick="signOut()">Sign Out</button>
     <div class="nav-border nav-border-bottom"></div>
   </nav>
 
@@ -24,13 +25,13 @@
   </header>
 
   
-  <h1>Upload Deck!</h1>
-
-
+  
+  
+    <h2>Upload a Deck!</h2>
+    
 
   <main class="page-content">
 
-  <div> 
     <p style="text-align: center;"><b><u>Instructions:</u></b></p>
     
     <i>
@@ -46,12 +47,8 @@
       <br> 
       <button id="uploadButton" type="Submit">Upload Deck</button>
     </form>
-  </div>
 
-  
-  <p style="text-align: center;" id="uploadStatus">Please choose a file.</p>
-
-  
+     <p style="text-align: center;" id="uploadStatus">Please choose a file.</p>
   </main>
 
 

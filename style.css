@@ -56,6 +56,16 @@ body {
 }
 
 
+.top-nav button {
+  background-color: #ffbaf7;
+  color: rgb(0, 0, 0);
+  border: .2rem dashed white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  font-family: 'Courier New', Courier, monospace;
+}
+
 @keyframes switchImages {
     0%, 49% {
         background-image: linear-gradient(var(--background-color), var(--background-color)), url(images/webiteBackground1.png);
@@ -240,14 +250,15 @@ div {
 
 .page-content {
     width: 100%;
-    height: 20rem;
-    max-width: 700px;
+    height: auto;
+    max-width: 850px;
     text-align: center;
     display: block;
     background-color: rgb(255, 120, 113);
     padding-left: 2rem;
     padding-right: 2rem;
     padding-top: 1rem;
+    padding-bottom: 1rem;
     margin-top: 1rem;
     margin-bottom: 3rem;
     border-radius: .6rem;
@@ -467,6 +478,10 @@ input::placeholder {
     .page-header {
         width: 100%;
     }
+    .top-nav {
+        height: auto;
+        padding-bottom: 0rem;
+    }
 }
 
 
@@ -623,6 +638,12 @@ form {
     margin-top: 3rem;
 }
 
+.info-box input {
+    border: .2rem dashed var(--darkerCherry);
+    background-color: black;
+    color: var(--darkerCherry);
+}
+
 input {
     font-family: 'Courier New', Courier, monospace;
 }
@@ -647,4 +668,18 @@ input[type="file"]::file-selector-button:hover {
 
 #uploadButton:hover {
     background-color:rgb(rgb(65, 255, 129), green, blue);
+}
+
+#submit-btn {
+  background-color: #ffbaf7;
+  color: rgb(0, 0, 0);
+  border: .2rem dashed white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  font-family: 'Courier New', Courier, monospace
+}
+
+a {
+    color: var(--darkerCherry);
 }
