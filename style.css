@@ -3,6 +3,9 @@
 
 :root {
     --background-color: rgba(4, 16, 48, 0.63);
+    --cherry: rgb(244, 182, 194);
+    --darkerCherry: rgb(231, 138, 167);
+    --white: rgb(255, 255, 255);
 }
 
 body {
@@ -89,10 +92,36 @@ h2 {
     border-radius: .6rem;
     justify-content:  start;
     gap: 1rem;
+    background-color: rgba(255, 139, 240, 0.4);
+    padding-left: .5rem;
+    padding-right: .5rem;
+    border: .3rem dashed rgba(255, 255, 255, 1);
 }
 
 .display-box h2 {
     padding-left: 1rem;
+    background-image: linear-gradient(45deg, rgb(255, 155, 250), rgb(255, 255, 255));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent; 
+    color: transparent;
+    display: inline-block;
+    font-style: italic;
+    padding-right: 1rem;
+    animation: colorFrames 10s ease infinite;
+    background-size: 200%;
+}
+
+@keyframes colorFrames {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
 }
 
 .info-box {
