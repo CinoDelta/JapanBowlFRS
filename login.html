@@ -33,9 +33,9 @@
 
         <p id="auth-status"></p>
 
-        <p>
+        <p  id="toggle-mode">
             <i>Accountless? --> </i>
-            <a href="#" id="toggle-mode">
+            <a href="#">
                 Sign Up!
             </a>
         </p>
@@ -62,11 +62,11 @@
                     if (mode === 'signup') {
                         formTitle.textContent = 'Sign Up for JFRS!';
                         submitBtn.textContent = 'Sign Up';
-                        toggleLink.textContent = 'Already have an account? Sign in';
+                        toggleLink.innerHTML = "<i>Accountful? --> </i> <a href='#'>Sign In!</a>";
                     } else {
                         formTitle.textContent = 'Sign In to JFRS!';
                         submitBtn.textContent = 'Sign In';
-                        toggleLink.textContent = 'Need an account? Sign up';
+                        toggleLink.innerHTML = "<i>Accountless? --> </i> <a href='#'>Sign Up!</a>";;
                     }
                     statusEl.textContent = '';
                 }
@@ -82,9 +82,7 @@
 
                 statusEl.textContent = "Checkin the records...";
 
-                const {data, error } = mode === 'signup' ? 
-                await signUpWithEmail(email, password) :
-                await signInWithEmail(email, password);
+                const {data, error } = mode === 'signup' ?  await signUpWithEmail(email, password) : await signInWithEmail(email, password);
 
                 if (error) {
                     statusEl.textContent = error.message;

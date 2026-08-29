@@ -1,5 +1,5 @@
 // Fill these in from Supabase Studio -> Settings -> API
-const SUPABASE_URL = 'https://your-project-ref.supabase.co';
+const SUPABASE_URL = 'https://tvxkfnutifssyrxicqvw.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_1UjLC8U1U2Xs1Az0jTip6A__TZUDzyn';
 
 // `supabase` here is the global provided by the CDN <script> tag.
