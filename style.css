@@ -44,6 +44,7 @@ body {
     border: .3rem solid white;
     overflow: hidden;
     position: sticky;
+    z-index: 100;
     top: 1rem;
     padding-bottom: 3rem;
     background: linear-gradient(135deg, #f4b6c2 0%, #e78aa7 100%);
