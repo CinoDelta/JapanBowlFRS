@@ -1,7 +1,17 @@
 async function uploadDeck(deckObject) {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+        alert('Please sign in with Google first.');
+        return;
+    }
+
     const res = await fetch("/api/decks", {
         method: "POST",
-        headers: {"Content-Type" : "application/json"},
+        headers: {
+            "Content-Type" : "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify(deckObject)
     })
 
@@ -53,9 +63,19 @@ document.getElementById('uploadForm').addEventListener('submit', async (event) =
 
     console.log(`deck: ${deck}`);
 
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+        statusEl.textContent = 'Please sign in before uploading a deck!';
+        return;
+    }
+
     const res = await fetch('/api/decks', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify(deck),
     });
 

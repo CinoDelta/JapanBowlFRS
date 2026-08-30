@@ -8,9 +8,29 @@ const supabase = createClient(
 module.exports = async (req, res) => {
     try {
         if (req.method === "POST") {
-        
+
+            const authHeader = req.headers.authorization || '';
+            const token = authHeader.replace('Bearer ', '');
+
+            if (!token) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
+                return;
+            }
+
+            const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+            if (authError || !user) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
+                return;
+            }
+
             const deck = req.body;
-                
+            console.log("POSTING");
+
             if (!deck || !Array.isArray(deck.cards) || typeof deck.name !== 'string') {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
@@ -18,12 +38,22 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            console.log("After check");
+
+            console.log(`The deck's name is ${deck.name} and the cards is ${deck.cards.toString()}`);
+
             const {data, error} = await supabase // object that contains data if succesful and error if not...
                 .from('decks') // get it from the decks table
-                .insert({name: deck.name, cards: deck.cards}) // insert a new row, give it a name and cards, id and time created is automatic
+                .insert({
+                    name: deck.name,
+                    cards: deck.cards,
+                    user_id: user.id,
+                    uploader_name: user.user_metadata?.full_name ?? user.email,
+                }) // insert a new row, give it a name and cards, id and time created is automatic
                 .select() // select this row specifically... yes this row please...
                 .single();
 
+            console.log("POST AWAIT")
 
             if (error) {
                 console.log(`ERROR IS ${error}`);
@@ -41,7 +71,7 @@ module.exports = async (req, res) => {
             return;
         } else if (req.method === "GET") {
             const { id } = req.query
-            
+
 
             // if we are looking for a specific deck
             if (id) {
@@ -50,7 +80,7 @@ module.exports = async (req, res) => {
                     .select('id, name, cards') // i only need these 3 specifc columns (seperated in csv format, remember!)
                     .eq('id', id) // does the id match the id that came as part of our query?
                     .single(); // only one please
-                
+
                 if (error || !data) {
                     res.statusCode = 404;
                     res.setHeader('Content-Type', 'application/json');
@@ -64,11 +94,11 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const {data, error} = await supabase 
+            const {data, error} = await supabase
                 .from('decks')
-                .select('id, name, cards')
+                .select('id, name, cards, uploader_name')
                 .order('created_at', {ascending: false});
-            
+
             if (error) {
                 console.error('list error:', error);
                 res.statusCode = 500;
@@ -81,11 +111,13 @@ module.exports = async (req, res) => {
                 id: row.id,
                 name: row.name,
                 cardCount: Array.isArray(row.cards) ? row.cards.length : 0,
+                uploaderName: row.uploader_name,
             }));
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ok: true, decks}));
+            return;
         }
 
         res.statusCode = 405;
@@ -93,6 +125,7 @@ module.exports = async (req, res) => {
         res.end(JSON.stringify({error: "method not allowed!! tsk tsk tsk"}));
 
     } catch (err) {
+        console.error('decks error:', err);
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({error: 'internal_server_error'}));

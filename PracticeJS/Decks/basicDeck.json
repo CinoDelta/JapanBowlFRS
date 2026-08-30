@@ -4,33 +4,33 @@
         {
             "category": "History",
             "question": "What was the capital of Japan before Tokyo?",
-            "answer": "Kyoto",
+            "answers": ["Kyoto"],
             "answer-type": "EN",
             "img-link": ""
         },
         {
             "category": "Pop Culture",
             "question": "Which studio produced 'Spirited Away'?",
-            "answer": "Studio Ghibli",
+            "answers": ["Studio Ghibli"],
             "answer-type": "EN"
         },
         {
             "category": "Geography",
             "question": "What is the tallest mountain in Japan?",
-            "answer": "富士山",
+            "answers": ["富士山"],
             "answer-type": "漢",
             "img-link": ""
         },
         {
             "category": "History",
             "question": "In which year did the Meiji Restoration begin?",
-            "answer": "1868",
+            "answers": ["1868"],
             "answer-type": "123"
         },
         {
             "category": "Food",
             "question": "What is the Japanese dish of vinegared rice with raw fish called?",
-            "answer": "すし",
+            "answers": ["すし"],
             "answer-type": "ひら"
         }
     ]
