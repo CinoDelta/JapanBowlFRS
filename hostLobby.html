@@ -150,7 +150,7 @@
       const parts = [
           `${settings.timeLimitSeconds}s per question`,
           `${settings.earlyThresholdSeconds}s early-answer window`,
-          settings.teamsEnabled ? `${settings.numTeams} teams` : 'no teams (everyone solo)',
+          settings.teamsEnabled ? (settings.numTeams > 1 ? `${settings.numTeams} teams` : `${settings.numTeams} team`) : 'no teams (free for all)',
       ];
       if (settings.questionCount) parts.push(`${settings.questionCount} questions`);
       settingsSummary.textContent = parts.join(' • ');
@@ -199,7 +199,7 @@
         .subscribe();
 
         //awe sum sauce
-        
+
         endMatchBtn.addEventListener('click', async () => {
           if (!matchId) return;
 
