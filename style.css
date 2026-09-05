@@ -7,6 +7,7 @@
     --darkerCherry: rgb(231, 138, 167);
     --white: rgb(255, 255, 255);
     --infoBackground: rgba(40, 3, 25, 0.7);
+    --lighterCherry: rgb(254, 218, 226);
 }
 
 body {
@@ -658,7 +659,7 @@ button:disabled {
 
 p {
     font-size: 1.4rem;
-    text-align: left;
+    text-align: center;
     font-family: Tahoma, Verdana, Segoe, sans-serif; font-size: 24px; font-style: normal;
 }
 
@@ -670,7 +671,9 @@ p {
 
 li {
     font-size: 1.4rem;
-    list-style-type: dashed;
+    list-style-type: none;
+    color: var(--lighterCherry);
+    font-family: Tahoma, Verdana, Segoe, sans-serif; font-size: 24px; font-style: normal;
 }
 
 form {
