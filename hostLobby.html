@@ -105,7 +105,7 @@
       endMatchBtn.addEventListener('click', async () => {
         if (!matchId) return;
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
 
         if (!session) {
           window.location.href = 'deckCatalogue.html';
