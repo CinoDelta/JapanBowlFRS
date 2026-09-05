@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan Bowl FRS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+</head>
+<body>
+
+  <nav class="top-nav" aria-label="Primary navigation" style="display:none;"></nav>
+  </nav>
+
+  <header class="page-header" style="width: 50%; margin-bottom: 0.2rem; margin-top: 0.2rem;">
+    <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
+  </header>
+
+
+
+  <main class="page-content">
+    <h2>
+      Match Lobby
+
+    </h2>
+    
+  </main>
+
+
+  <div class="display-box" style="display: block; text-align:center; justify-content: center;">
+    <div class="info-box"> 
+              <h2 id="match-code" style="letter-spacing: 0.5rem;">------</h2>
+              <p> 
+               Please share this code with your players.
+                </p>
+    </div>
+
+    <h3>Players</h3>
+
+    <ul id="player-list">
+
+    <button id="end-match-btn">End Match</button>
+    </ul>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="PracticeJS/supabaseclient.js"></script>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const matchCode = params.get('matchCode');
+
+    const codeEl = document.getElementById('match-code');
+    const playerListEl = document.getElementById('player-list');
+
+    let matchId = null;
+
+    function displayPlayers(players) {
+      playerListEl.innerHTML = '';
+      players.forEach(player => {
+        const li = document.createElement('li');
+        li.textContent = `${player.display_name} -- Team ${player.team_number} -- Score: ${player.score} pts`;
+
+        playerListEl.appendChild(li);
+      });
+    }
+
+    async function loadMatch() {
+      const res = await fetch(`api/matches?code=${matchCode}`);
+      const data = await res.json();
+
+      if (!data.ok) {
+        codeEl.textContent = 'Match not found';
+        return;
+      }
+
+      codeEl.textContent = data.match.code;
+
+      renderPlayers(data.players);
+
+      if (matchId === null) {
+        matchId = data.match.id;
+        
+
+        // Ok listenng to real-time updates. we need to create a channel...
+
+
+        supabaseClient
+        .channel(`match-players-${matchId}`)
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'match_players', filter: 'match_players', filter: `match_id=eq.${matchId}` },
+          () => {
+            loadMatch(); // just call the function again bro
+          }
+        )
+        .subscribe();
+      }
+    }
+
+    loadMatch();
+  </script>
+
+  <br>
+
+
+
+  <br>
+
+
+
+
+
+
+
+</body>
+</html>
