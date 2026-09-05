@@ -94,12 +94,55 @@
         supabaseClient
         .channel(`match-players-${matchId}`)
         .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'match_players', filter: 'match_players', filter: `match_id=eq.${matchId}` },
+          { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` },
           () => {
             loadMatch(); // just call the function again bro
           }
         )
         .subscribe();
+
+        endMatchBtn.addEventListener('click', async () => {
+          if (!matchId) return;
+
+          
+          if (isHost) {
+
+            const res = await fetch(`/api/matches/?host_user_id=${userId}`, {
+              method: 'DELETE',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+              },
+            });
+
+            endMatchBtn.textContent = 'Ending Match...';
+            endMatchBtn.disabled = true;
+
+            const data = await res.json();
+
+            if (data.ok) {
+              endMatchBtn.textContent = 'Match Ended Successfully';
+              window.location.href = 'index.html';
+            } else {
+              alert('Only the host can end the match.');
+              endMatchBtn.textContent = 'End Match';
+              endMatchBtn.disabled = false;
+            }
+          } else {
+
+          await fetch('/api/join', {
+              method: 'DELETE', 
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({code: matchCode}),
+            });
+
+            window.location.href = 'deckCatalogue.html';
+          
+          }
+        });
       }
 
       const { data: { session } } = await supabaseClient.auth.getSession();
@@ -117,48 +160,7 @@
       endMatchBtn.textContent = isHost ? "End Match" : "Leave Match";
 
 
-      endMatchBtn.addEventListener('click', async () => {
-        if (!matchId) return;
 
-        
-        if (isHost) {
-
-          const res = await fetch(`/api/matches/?host_user_id=${userId}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-            },
-          });
-
-          endMatchBtn.textContent = 'Ending Match...';
-          endMatchBtn.disabled = true;
-
-          const data = await res.json();
-
-          if (data.ok) {
-            endMatchBtn.textContent = 'Match Ended Successfully';
-            window.location.href = 'index.html';
-          } else {
-            alert('Only the host can end the match.');
-            endMatchBtn.textContent = 'End Match';
-            endMatchBtn.disabled = false;
-          }
-        } else {
-
-         await fetch('/api/join', {
-            method: 'DELETE', 
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({code: matchCode}),
-          });
-
-          window.location.href = 'deckCatalogue.html';
-        
-        }
-      });
 
     }
 
