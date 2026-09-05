@@ -696,7 +696,7 @@ form {
 .info-box input::placeholder {
     color: var(--darkerCherry);
     font-style: italic;
-    font-size: 2rem;
+    font-size: auto;
 }
 
 input {
