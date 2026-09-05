@@ -123,7 +123,7 @@
         
         if (isHost) {
 
-          const res = await fetch(`/api/matches/?host_user_id=${matchId}`, {
+          const res = await fetch(`/api/matches/?host_user_id=${userId}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',

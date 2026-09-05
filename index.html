@@ -152,21 +152,23 @@
           },
           body: JSON.stringify({code})
         })
+
+        const data = await res.json();
+
+        if (!data.ok) {
+          const messages = {
+            match_not_found: 'Match not found. Please check the code and try again.',
+            match_already_started: 'Match has already started. Sorry :(',
+          };
+
+          statusEl.textContent = messages[data.error] || 'Could not join: ' + (data.error || 'unknown error');
+          return;
+        }
+        
+        window.location.href = `hostLobby.html?matchId=${data.code}`
       });
 
-      const data = await res.json();
 
-      if (!data.ok) {
-        const messages = {
-          match_not_found: 'Match not found. Please check the code and try again.',
-          match_already_started: 'Match has already started. Sorry :(',
-        };
-
-        statusEl.textContent = messages[data.error] || 'Could not join: ' + (data.error || 'unknown error');
-        return;
-      }
-      
-      window.location.href = `hostLobby.html?matchId=${data.code}`;
     </script>
 
 
