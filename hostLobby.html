@@ -30,7 +30,7 @@
   <div class="display-box" style="display: block; text-align:center; justify-content: center;">
     <div class="info-box"> 
               <h2 id="match-code" style="letter-spacing: 0.5rem;">------</h2>
-              <p> 
+              <p id="code-info"> 
                Please share this code with your players.
                 </p>
     </div>
@@ -40,8 +40,10 @@
     <ol id="player-list" style="list-style-type: none; padding-left: 0;">
 
       <li>sansTheSkeleton@babies.com -- Team 1 -- Score: 0 pts</li>
-    <button id="end-match-btn">End Match</button>
+
     </ol>
+
+    <button id="end-match-btn">End Match</button>
   </div>
 
 
@@ -54,6 +56,8 @@
 
     const codeEl = document.getElementById('match-code');
     const playerListEl = document.getElementById('player-list');
+    const endMatchBtn = document.getElementById('end-match-btn');
+    const info = document.getElementById('code-info');
 
     let matchId = null;
 
@@ -97,6 +101,68 @@
         )
         .subscribe();
       }
+
+      endMatchBtn.addEventListener('click', async () => {
+        if (!matchId) return;
+
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session) {
+          window.location.href = 'deckCatalogue.html';
+          return;
+        }
+
+        const userId = session?.user?.id;
+
+        let isHost = userId === data.match.host_user_id;
+        
+        
+        if (isHost) {
+          window.location.href = 'deckCatalogue.html';
+          info.textContent = "Please share this code with your players."
+          const res = await fetch(`/api/matches/?host_user_id=${matchId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+
+          endMatchBtn.textContent = 'Ending Match...';
+          endMatchBtn.disabled = true;
+
+          const data = await res.json();
+
+          if (data.ok) {
+            endMatchBtn.textContent = 'Match Ended Successfully';
+            delay(1000).then(() => {
+              window.location.href = 'index.html';
+            });
+            window.location.href = 'index.html';
+          } else {
+            alert('Only the host can end the match.');
+            endMatchBtn.textContent = 'End Match';
+            endMatchBtn.disabled = false;
+          }
+        } else {
+          info.textContent = "Waiting for the host to start the match...";
+          endMatchBtn.textContent = 'Leave Match';
+          
+
+         await fetch('/api/join', {
+            method: 'DELETE', 
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({code: matchCode}),
+          });
+
+          window.location.href = 'deckCatalogue.html';
+        
+        }
+      });
+
     }
 
     loadMatch();

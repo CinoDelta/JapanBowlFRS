@@ -129,6 +129,33 @@ module.exports = async (req, res) => {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true, match, players: players || [] }));
             return;
+        } else if (req.method === 'DELETE') {
+            const { host_user_id } = req.query;
+
+            if (!host_user_id) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'missing_code' }));
+                return;
+            }
+
+            const { data, error } = await supabase
+                .from('matches')
+                .delete()
+                .eq('host_user_id', host_user_id)
+                .select();
+
+            if (error) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'internal_server_error: could not delete match' }));
+                return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, deletedMatch: data }));
+            return;
         }
 
         res.statusCode = 405;

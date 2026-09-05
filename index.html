@@ -41,6 +41,8 @@
       <br>
 
     </p>
+
+    
     
   </main>
 
@@ -63,13 +65,47 @@
 
                  </p>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="PracticeJS/supabaseclient.js"></script>
-    
     
   </div>
 
+  <div class="display-box">
+    <div class="info-box"> 
+              <h2>Host a Match !</h2>
+              <p> 
+                Host a match for your team, and share the match code with your players. 
+                Players can join the match and compete against each other in real time.
+                </p>
+    </div>
+    <div class="info-box"> 
+              <h2>Create Decks!</h2>
+              <p>
+                  Creat your own decks using the built in deck creator (coming in version 2) or by using the JSON template provided.
+                 </p>
+    </div>
+
+    </div>
+
+
+    <div class="display-box" style="display: block; text-align:center; justify-content: center;">
+    
+      <h1>What are you waiting for?!</h1>
+
+
+      <br>
+
+      <div class="info-box">
+        <h2>Join a Match!</h2>
+        <p>(Requires you to sign in first.)</p>
+        <form id="join-form" style="margin-top: 0rem;">
+        <input id="match-code-input" type="text" placeholder="Enter code" maxlength="6" style="text-transform: uppercase; width:100%; height: auto; font-size: 2rem; text-align: center;" required>
+        <br>
+        <button type="submit">Join</button>
+      </form>
+      </div>
+
+
+      <p id="join-status"></p>
+  </div>  
 
 
 
@@ -80,6 +116,58 @@
   <br>
 
 
+  
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="PracticeJS/supabaseclient.js"></script>
+    
+
+    <script>
+
+      document.getElementById('join-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const statusEl = document.getElementById('join-status');
+        const codeInput = document.getElementById('match-code-input');
+        const code = codeInput.value.trim().toUpperCase();
+
+        if (!code) {
+          statusEl.textContent = 'Please enter a match code.';
+          return;
+        }
+
+        const { data : { session } } = await supabaseClient.auth.getSession();
+
+        if (!session) {
+          statusEl.textContent = 'You must be signed in to join a match.';
+          return;
+        }
+
+        statusEl.textContent = 'Joining match...';
+
+        const res = await fetch('/api/join', {
+          method : 'POST',
+          headers : {
+            'Content-Type' : 'application/json',
+            'Authorization' : `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({code})
+        })
+      });
+
+      const data = await res.json();
+
+      if (!data.ok) {
+        const messages = {
+          match_not_found: 'Match not found. Please check the code and try again.',
+          match_already_started: 'Match has already started. Sorry :(',
+        };
+
+        statusEl.textContent = messages[data.error] || 'Could not join: ' + (data.error || 'unknown error');
+        return;
+      }
+      
+      window.location.href = `hostLobby.html?matchId=${data.code}`;
+    </script>
 
 
 
