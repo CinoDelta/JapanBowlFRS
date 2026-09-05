@@ -67,7 +67,7 @@
     }
 
     async function loadMatch() {
-      const res = await fetch(`api/matches?code=${matchCode}`);
+      const res = await fetch(`/api/matches?code=${matchCode}`);
       const data = await res.json();
 
       if (!data.ok) {
