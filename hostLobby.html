@@ -178,15 +178,17 @@
         return;
       }
 
-      const userId = session?.user?.id;
-
-      let isHost = userId === data.match.host_user_id;
-
       if (!data.ok) {
         codeEl.textContent = !isHost ? 'Match not found' : 'Host ended match, returning to catalogue...';
         window.location.href = 'deckCatalogue.html';
         return;
       }
+
+
+      const userId = session?.user?.id;
+
+      let isHost = userId === data.match.host_user_id;
+
 
       codeEl.textContent = data.match.code;
 
