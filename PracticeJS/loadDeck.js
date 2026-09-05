@@ -148,7 +148,7 @@ function displayDeckInfo() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}`
             },
-            body: JSON.stringify({ deck_id: currentDeckId }),
+            body: JSON.stringify({ deckId: currentDeckId }),
         });
         
         const data = await res.json();
