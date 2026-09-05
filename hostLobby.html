@@ -102,24 +102,27 @@
         .subscribe();
       }
 
+      const { data: { session } } = await supabaseClient.auth.getSession();
+
+      if (!session) {
+        window.location.href = 'deckCatalogue.html';
+        return;
+      }
+
+      const userId = session?.user?.id;
+
+      let isHost = userId === data.match.host_user_id;
+
+      info.textContent = isHost ?  "Please share this code with your players." : "Waiting for the host to start the match...";
+      endMatchBtn.textContent = isHost ? "End Match" : "Leave Match";
+
+
       endMatchBtn.addEventListener('click', async () => {
         if (!matchId) return;
 
-        const { data: { session } } = await supabaseClient.auth.getSession();
-
-        if (!session) {
-          window.location.href = 'deckCatalogue.html';
-          return;
-        }
-
-        const userId = session?.user?.id;
-
-        let isHost = userId === data.match.host_user_id;
-        
         
         if (isHost) {
-          window.location.href = 'deckCatalogue.html';
-          info.textContent = "Please share this code with your players."
+
           const res = await fetch(`/api/matches/?host_user_id=${matchId}`, {
             method: 'DELETE',
             headers: {
@@ -145,9 +148,6 @@
             endMatchBtn.disabled = false;
           }
         } else {
-          info.textContent = "Waiting for the host to start the match...";
-          endMatchBtn.textContent = 'Leave Match';
-          
 
          await fetch('/api/join', {
             method: 'DELETE', 
