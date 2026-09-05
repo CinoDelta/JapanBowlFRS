@@ -170,8 +170,21 @@
       const res = await fetch(`/api/matches?code=${matchCode}`);
       const data = await res.json();
 
+      
+      const { data: { session } } = await supabaseClient.auth.getSession();
+
+      if (!session) {
+        window.location.href = 'deckCatalogue.html';
+        return;
+      }
+
+      const userId = session?.user?.id;
+
+      let isHost = userId === data.match.host_user_id;
+
       if (!data.ok) {
-        codeEl.textContent = 'Match not found';
+        codeEl.textContent = !isHost ? 'Match not found' : 'Host ended match, returning to catalogue...';
+        window.location.href = 'deckCatalogue.html';
         return;
       }
 
@@ -244,16 +257,6 @@
         });
       }
 
-      const { data: { session } } = await supabaseClient.auth.getSession();
-
-      if (!session) {
-        window.location.href = 'deckCatalogue.html';
-        return;
-      }
-
-      const userId = session?.user?.id;
-
-      let isHost = userId === data.match.host_user_id;
 
       info.textContent = isHost ?  "Please share this code with your players." : "Waiting for the host to start the match...";
       endMatchBtn.textContent = isHost ? "End Match" : "Leave Match";
