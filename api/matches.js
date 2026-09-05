@@ -129,7 +129,9 @@ module.exports = async (req, res) => {
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true, match, players: players || [] }));
             return;
-        } else if (req.method === 'DELETE') {
+        }
+        
+        if (req.method === 'DELETE') {
             const { host_user_id } = req.query;
 
             if (!host_user_id) {
@@ -155,6 +157,69 @@ module.exports = async (req, res) => {
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true, deletedMatch: data }));
+            return;
+        }
+
+        if (req.method === 'PATCH') {
+            const user = await authenticate(req);
+            if (!user) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
+                return;
+            }
+
+            const { code, settings } = req.body;
+            if (!code || !settings) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'missing_fields' }));
+                return;
+            }
+
+            const { data: match, error: matchError } = await supabase
+                .from('matches')
+                .select('id, host_user_id, status')
+                .eq('code', code.toUpperCase())
+                .single();
+
+            if (matchError || !match) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'match_not_found' }));
+                return;
+            }
+
+            if (match.host_user_id !== user.id) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_host' }));
+                return;
+            }
+
+            if (match.status !== 'lobby') {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'match_already_started' }));
+                return;
+            }
+
+            const { error: updateError } = await supabase
+                .from('matches')
+                .update({ settings })
+                .eq('id', match.id);
+
+            if (updateError) {
+                console.error('settings update error:', updateError);
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'internal_server_error' }));
+                return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
             return;
         }
 

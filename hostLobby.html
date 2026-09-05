@@ -43,8 +43,55 @@
 
     </ol>
 
+
+    <div id="settings-section" style="display: block;">
+      <h3>Match Settings</h3>
+      <br>
+
+      <label>Question time limit (seconds):
+        <input type="number" id="setting-time-limit" min="5" max="120">
+      </label>
+
+      <br>
+      <label>Early-answer penalty thresh. (seconds):
+        <input type="number" id="setting-early-threshold" min="0" max="60">
+      </label>
+      <br>
+
+      <label>
+
+        Enable teams
+        <input type="checkbox" id="setting-teams-enabled">
+      </label>
+
+      <br>
+      <div id="team-count-row" style="display: none;">
+        <label>Number of teams:
+          <input type="number" id="setting-num-teams" min="1">
+        </label>
+      </div>
+
+      <div id="question-count-row" style="display: none;">
+        <label>Number of questions (deck has <span id="deck-total-questions"></span> total):
+          <input type="number" id="setting-question-count" min="1">
+        </label>
+      </div>
+
+      <p>(Make sure to click <b>save</b>. If you don't the  match will use default settings.)</p>
+      <button id="save-settings-btn">Save Settings</button>
+      <span id="settings-status"></span>
+    </div>
+
+    <div id="settings-readonly" style="display: none;">
+      <h3>Match Settings</h3>
+      <p id="settings-summary"></p>
+    </div>
+        
+
     <button id="end-match-btn">End Match</button>
   </div>
+
+  
 
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,8 +105,56 @@
     const playerListEl = document.getElementById('player-list');
     const endMatchBtn = document.getElementById('end-match-btn');
     const info = document.getElementById('code-info');
+    
+    const settingsSection = document.getElementById('settings-section');
+    const settingsReadonly = document.getElementById('settings-readonly');
+    const timeLimitInput = document.getElementById('setting-time-limit');
+    const earlyThresholdInput = document.getElementById('setting-early-threshold');
+    const teamsEnabledInput = document.getElementById('setting-teams-enabled');
+    const teamCountRow = document.getElementById('team-count-row');
+    const numTeamsInput = document.getElementById('setting-num-teams');
+    const questionCountRow = document.getElementById('question-count-row');
+    const questionCountInput = document.getElementById('setting-question-count');
+    const deckTotalQuestionsSpan = document.getElementById('deck-total-questions');
+    const settingsStatus = document.getElementById('settings-status');
+    const settingsSummary = document.getElementById('settings-summary');
 
     let matchId = null;
+    let deckTotalCards = 0;
+
+    async function loadDeckInfo(deckId) {
+      const res = await fetch(`api/decks?id=${deckId}`);
+      const data = await res.json();
+      if (data.ok) deckTotalCards = data.deck.cards.length;
+    }
+
+
+    function renderSettingsForm(settings, playerCount) {
+        timeLimitInput.value = settings.timeLimitSeconds;
+        earlyThresholdInput.value = settings.earlyThresholdSeconds;
+        teamsEnabledInput.checked = settings.teamsEnabled;
+        teamCountRow.style.display = settings.teamsEnabled ? 'block' : 'none';
+        numTeamsInput.value = settings.numTeams ?? Math.max(1, Math.floor(playerCount / 2));
+
+        if (deckTotalCards > 15) {
+            questionCountRow.style.display = 'block';
+            deckTotalQuestionsSpan.textContent = deckTotalCards;
+            questionCountInput.max = deckTotalCards;
+            questionCountInput.value = settings.questionCount ?? deckTotalCards;
+        } else {
+            questionCountRow.style.display = 'none';
+        }
+    }
+
+    function renderSettingsSummary(settings) {
+      const parts = [
+          `${settings.timeLimitSeconds}s per question`,
+          `${settings.earlyThresholdSeconds}s early-answer window`,
+          settings.teamsEnabled ? `${settings.numTeams} teams` : 'no teams (everyone solo)',
+      ];
+      if (settings.questionCount) parts.push(`${settings.questionCount} questions`);
+      settingsSummary.textContent = parts.join(' • ');
+    }
 
     function displayPlayers(players) {
       playerListEl.innerHTML = '';
@@ -89,18 +184,22 @@
         
 
         // Ok listenng to real-time updates. we need to create a channel...
-
-
         supabaseClient
-        .channel(`match-players-${matchId}`)
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` },
-          () => {
-            loadMatch(); // just call the function again bro
-          }
-        )
+          .channel(`match-players-${matchId}`)
+          .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` },
+            () => {
+              loadMatch(); // just call the function again bro
+            }
+          )
+          .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` },
+            () => loadMatch()
+          )
         .subscribe();
 
+        //awe sum sauce
+        
         endMatchBtn.addEventListener('click', async () => {
           if (!matchId) return;
 
@@ -159,12 +258,58 @@
       info.textContent = isHost ?  "Please share this code with your players." : "Waiting for the host to start the match...";
       endMatchBtn.textContent = isHost ? "End Match" : "Leave Match";
 
+      // Yes ik this code is messy sorry :((((
+      if (deckTotalCards === 0) {
+          await loadDeckInfo(data.match.deck_id);
+      }
 
+      if (isHost) {
+          settingsSection.style.display = 'block';
+          settingsReadonly.style.display = 'none';
+          renderSettingsForm(data.match.settings, data.players.length);
+      } else {
+          settingsSection.style.display = 'none';
+          settingsReadonly.style.display = 'block';
+          renderSettingsSummary(data.match.settings);
+      }
 
 
     }
 
+
+
+    teamsEnabledInput.addEventListener('change', () => {
+      teamCountRow.style.display = teamsEnabledInput.checked ? 'block' : 'none';
+    });
+
+    document.getElementById('save-settings-btn').addEventListener('click', async () => {
+        const newSettings = {
+            timeLimitSeconds: parseInt(timeLimitInput.value, 10),
+            earlyThresholdSeconds: parseInt(earlyThresholdInput.value, 10),
+            teamsEnabled: teamsEnabledInput.checked,
+            numTeams: teamsEnabledInput.checked ? parseInt(numTeamsInput.value, 10) : null,
+            questionCount: deckTotalCards > 15 ? parseInt(questionCountInput.value, 10) : null,
+        };
+
+        settingsStatus.textContent = 'Saving...';
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        const res = await fetch('/api/matches', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode, settings: newSettings }),
+        });
+
+        const data = await res.json();
+        settingsStatus.textContent = data.ok ? 'Saved!' : 'Failed to save.';
+    });
+    
     loadMatch();
+
   </script>
 
   <br>
