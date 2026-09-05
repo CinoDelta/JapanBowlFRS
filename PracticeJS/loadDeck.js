@@ -130,7 +130,7 @@ function displayDeckInfo() {
     }
 
     hostMatchButton.onclick = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
             hostMatchButton.textContent = "Please log in to host a match!";
             delay(2000).then(() => {
