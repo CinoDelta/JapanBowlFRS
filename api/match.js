@@ -160,6 +160,7 @@ module.exports = async (req, res) => {
                 const elapsed = (Date.now() - match.question_started_at) / 1000;
 
                 if (elapsed < 10) {
+                    console.log(`ELAPSED TIME IS ${elapsed}`);
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify({error: 'elapsed_time_insufficient_to_advance'}));
