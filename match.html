@@ -139,7 +139,7 @@
             div.innerHTML = `
                 <h3 class="team-name">TEAM ${teamNum}</h3>
                 <ol class="player-list">
-                    ${teamPlayers.map((p) => `<li>${p.display_name} - Points: ${p.score}</li>`).join('')}
+                    ${teamPlayers.map((p) => `<li>${p.display_name.includes('@') ? p.display_name.split('@')[0] : p.display_name} - Points: ${p.score}</li>`).join('')}
                 </ol>
                 <h3>TOTAL SCORE: ${totalScore}</h3>
             `;
