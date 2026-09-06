@@ -31,13 +31,13 @@
     <div class="game-panel">
       <div class="question-div" style="display:flex; justify-content:space-between; align-items:center; width:90%; margin-left: 5%; margin-right: 5%;">
         <img class="category-image" src="images/Category.png" alt="Category icon">
-        <h2 id="current-category">CATEGORY: Nonsense and Tomfoolery</h2>
+        <h2 id="current-category">CATEGORY: —</h2>
         <img id="answer-type-icon" src="images/Answer_Types/123.png" alt="Answer type icon">
       </div>
 
-      <div class="question-div" style="display: flex; justify-content: space-between;">
+      <div class="question-div" style="justify-content: space-between;">
         <img class="category-image" src="images/sakura0.png" alt="Decoration">
-        <h2 id="current-question">QUESTION:<br>Every day, 5 seconds passes in Nigeria. How many seconds is that?</h2>
+        <h2 id="current-question">QUESTION:<br>—</h2>
         <img class="category-image" src="images/sakura0.png" alt="Decoration">
       </div>
 
@@ -88,31 +88,30 @@
     let myDisplayName = null;
     let currentQuestionIndex = null;
 
-    // Timer phases: 'reading' -> 'open' -> 'answering'
-    //   reading:   question being read out (readTime seconds)
-    //   open:      main timer running, anyone can buzz
-    //   answering: someone buzzed, they have 10s to type
-    let timerPhase = 'reading';
+    // Timer phases: 'getready' -> 'reading' -> 'open' -> 'answering'
+    let timerPhase = 'getready';
     let timerInterval = null;
 
-    // Phase 1 (reading) state
-    let readTimeTotal = 0;       // how long the read phase lasts
-    let questionStartedAt = 0;   // timestamp from server
+    let readTimeTotal = 0;
+    let questionStartedAt = 0;
 
-    // Phase 2 (open) state
-    // mainTimerTotal is 30s normally, 60s for JP/ひら/漢
     let mainTimerTotal = 30;
-    let mainTimerRemaining = 30; // decrements; pauses during answering
+    let mainTimerRemaining = 30;
 
-    // Phase 3 (answering) state
     let answerTimerRemaining = 10;
     let answerAutoSubmitTimeout = null;
 
-    // Per-question flags
-    let myBuzzUsed = false;          // did I personally already buzz this question?
-    let answerSubmitted = false;     // did I submit my answer?
-    let soundPlayedForBuzz = false;  // prevent replaying buzz sound on re-poll
+    let myBuzzUsed = false;
+    let answerSubmitted = false;
+    let soundPlayedForBuzz = false;
     let soundPlayedForResult = false;
+
+    // FIX #3: This flag is true from the moment the local user's
+    // buzz POST succeeds until their answer is submitted/graded.
+    // While true, checkBuzzStatus() skips all UI changes so that
+    // a concurrent realtime-triggered re-check can't hide the
+    // answer input out from under the user mid-typing.
+    let iAmAnswering = false;
 
     // ---- HELPERS ----
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -169,15 +168,33 @@
         stopTimer();
 
         timerInterval = setInterval(() => {
+            const elapsed = (Date.now() - questionStartedAt) / 1000;
+
+            // FIX #1: If elapsed is negative, the question hasn't actually
+            // started yet — the server set question_started_at to a few
+            // seconds in the future to let everyone load in. Show a
+            // countdown so players know it's about to begin.
+            if (elapsed < 0) {
+                timerPhase = 'getready';
+                timerEl.style.color = '#ffd54f';
+                timerEl.textContent = `GET READY! ${Math.ceil(-elapsed)}`;
+                buzzerBtn.style.display = 'none';
+                return;
+            }
+
+            if (timerPhase === 'getready') {
+                // Transition: the "get ready" period just ended
+                timerPhase = 'reading';
+                buzzerBtn.style.display = 'block';
+            }
+
             if (timerPhase === 'reading') {
-                const elapsed = (Date.now() - questionStartedAt) / 1000;
-                const readRemaining = Math.max(0, Math.ceil(readTimeTotal - elapsed));
+                const readRemaining = Math.max(0, readTimeTotal - elapsed);
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
                 timerEl.style.color = 'red';
 
                 if (readRemaining <= 0) {
-                    // Transition to open phase
                     timerPhase = 'open';
                     mainTimerRemaining = mainTimerTotal;
                 }
@@ -193,7 +210,6 @@
                     stopTimer();
                     timerEl.textContent = "TIME'S UP!";
                     buzzerBtn.style.display = 'none';
-                    // Small delay then advance
                     setTimeout(tryAdvance, 2000);
                 }
 
@@ -203,9 +219,6 @@
 
                 timerEl.style.color = '#ff6b6b';
                 timerEl.textContent = `${display}s TO ANSWER`;
-
-                // Auto-submit is handled by the timeout set in enterAnswerPhase,
-                // not here — this just updates the display.
             }
         }, 250);
     }
@@ -214,7 +227,6 @@
         timerPhase = 'answering';
         answerTimerRemaining = 10;
 
-        // After 10 seconds, auto-submit whatever is in the input.
         clearTimeout(answerAutoSubmitTimeout);
         answerAutoSubmitTimeout = setTimeout(() => {
             if (!answerSubmitted && timerPhase === 'answering') {
@@ -226,22 +238,44 @@
     function resumeOpenPhase() {
         timerPhase = 'open';
         clearTimeout(answerAutoSubmitTimeout);
-        // mainTimerRemaining still holds whatever was left when the buzz happened —
-        // the interval picks right back up from there.
+        iAmAnswering = false;
         buzzerBtn.style.display = myBuzzUsed ? 'none' : 'block';
+        buzzerBtn.disabled = false;
         answerInput.style.display = 'none';
+        answerInput.value = '';
+        answerInput.disabled = false;
         resultBanner.style.display = 'none';
     }
+
+    // ---- PERIODIC TIMER SYNC ----
+    // FIX #2: Every 15 seconds, re-fetch the server's authoritative
+    // question_started_at and re-anchor the local clock to it. This
+    // corrects any drift caused by JS thread pauses, tab throttling,
+    // or brief network hiccups — without disrupting the user like an
+    // alert() would.
+    setInterval(async () => {
+        if (currentQuestionIndex === null) return;
+        try {
+            const res = await fetch(`/api/match?code=${matchCode}`);
+            const data = await res.json();
+            if (data.ok && data.questionStartedAt) {
+                questionStartedAt = new Date(data.questionStartedAt).getTime();
+            }
+        } catch (e) {
+            console.error('timer sync failed:', e);
+        }
+    }, 15000);
 
     // ---- QUESTION LOADING ----
 
     function resetQuestionUI() {
         myBuzzUsed = false;
         answerSubmitted = false;
+        iAmAnswering = false;
         soundPlayedForBuzz = false;
         soundPlayedForResult = false;
-        timerPhase = 'reading';
-        buzzerBtn.style.display = 'block';
+        timerPhase = 'getready';
+        buzzerBtn.style.display = 'none'; // hidden until get-ready ends
         buzzerBtn.disabled = false;
         answerInput.style.display = 'none';
         answerInput.value = '';
@@ -269,16 +303,16 @@
             currentQuestionIndex = data.currentQuestionIndex;
             resetQuestionUI();
 
-            // Set up the new question's timer values
             readTimeTotal = data.question?.readTime ?? 3;
             mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType);
             mainTimerRemaining = mainTimerTotal;
             questionStartedAt = new Date(data.questionStartedAt).getTime();
 
-            // If we're loading a question that's been going for a while
-            // (e.g. page refresh mid-question), figure out which phase we're in.
+            // If loading mid-question (e.g. page refresh), figure out phase.
             const elapsed = (Date.now() - questionStartedAt) / 1000;
-            if (elapsed < readTimeTotal) {
+            if (elapsed < 0) {
+                timerPhase = 'getready';
+            } else if (elapsed < readTimeTotal) {
                 timerPhase = 'reading';
             } else {
                 timerPhase = 'open';
@@ -315,11 +349,18 @@
     async function checkBuzzStatus() {
         if (currentQuestionIndex === null) return;
 
+        // FIX #3: If the local user just buzzed and is actively typing
+        // their answer, skip this entire function. Without this guard,
+        // a realtime-triggered re-check can race ahead of the database
+        // commit for the user's own buzz INSERT, see "no active buzz,"
+        // and hide the answer input mid-typing.
+        if (iAmAnswering) return;
+
         const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${currentQuestionIndex}`);
         const data = await res.json();
         if (!data.ok) return;
 
-        // If someone got it correct, show result and advance.
+        // --- Someone got it correct ---
         if (data.answeredCorrectly) {
             const correctBuzz = data.buzzes.find((b) => b.result === 'correct');
             buzzerBtn.style.display = 'none';
@@ -336,7 +377,7 @@
             return;
         }
 
-        // If someone is currently answering (active buzz exists)
+        // --- Someone is currently answering ---
         if (data.activeBuzz) {
             const isMe = data.activeBuzz.user_id === myUserId;
             buzzerBtn.style.display = 'none';
@@ -356,7 +397,7 @@
                 if (timerPhase !== 'answering') {
                     enterAnswerPhase();
                 }
-            } else {
+            } else if (!isMe) {
                 answerInput.style.display = 'block';
                 answerInput.disabled = true;
                 answerInput.placeholder = `${data.activeBuzz.displayName} is answering...`;
@@ -369,26 +410,21 @@
             return;
         }
 
-        // No active buzz — check if the most recent resolved buzz was incorrect!
+        // --- No active buzz: check latest resolved ---
         const resolvedBuzzes = data.buzzes.filter((b) => b.result !== null);
         if (resolvedBuzzes.length > 0) {
             const latest = resolvedBuzzes[resolvedBuzzes.length - 1];
 
-            if (latest.result === 'incorrect') {
-                if (!soundPlayedForResult) {
-                    soundPlayedForResult = true;
-                    incorrectSound.play();
-                }
+            if (latest.result === 'incorrect' && !soundPlayedForResult) {
+                soundPlayedForResult = true;
+                incorrectSound.play();
 
-                // Show the incorrect result briefly, then resume.
                 resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
                 resultBanner.style.display = 'block';
 
-                // Check if I already buzzed on this question.
                 const myBuzz = data.buzzes.find((b) => b.user_id === myUserId);
                 if (myBuzz) myBuzzUsed = true;
 
-                // Resume open phase after a short display.
                 setTimeout(() => {
                     soundPlayedForBuzz = false;
                     soundPlayedForResult = false;
@@ -400,8 +436,7 @@
             }
         }
 
-        // Nobody has buzzed yet, or we've already processed the last incorrect.
-        // Show the buzzer (unless I already used mine).
+        // --- Nobody buzzed yet, or we already processed the last incorrect ---
         const myPreviousBuzz = (data.buzzes || []).find((b) => b.user_id === myUserId);
         if (myPreviousBuzz) myBuzzUsed = true;
 
@@ -434,7 +469,11 @@
         const data = await res.json();
 
         if (!data.ok) {
-            //alert('Could not submit answer: ' + data.error);
+            // FIX #2: No alert — just log it and show in the result banner.
+            console.error('Could not submit answer:', data.error);
+            resultBanner.textContent = 'Error submitting answer.';
+            resultBanner.style.display = 'block';
+            iAmAnswering = false;
             return;
         }
 
@@ -448,17 +487,15 @@
 
         if (data.result === 'correct') {
             correctSound.play();
+            iAmAnswering = false;
             await delay(2000);
             tryAdvance();
         } else {
             incorrectSound.play();
-            // The realtime buzz update will trigger checkBuzzStatus()
-            // on all other clients, which will see the resolved buzz
-            // and resume their open phase.
             soundPlayedForBuzz = false;
             soundPlayedForResult = false;
             await delay(2000);
-            resumeOpenPhase();
+            resumeOpenPhase(); // this also sets iAmAnswering = false
         }
     }
 
@@ -468,7 +505,7 @@
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) return;
 
-        await fetch('/api/match', {
+        const res = await fetch('/api/match', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -476,6 +513,15 @@
             },
             body: JSON.stringify({ code: matchCode }),
         });
+
+        const data = await res.json();
+
+        // FIX #2: No alert — just log failures silently. The server
+        // rejects duplicate advances and "not resolved" attempts,
+        // which are expected when multiple clients try at once.
+        if (!data.ok) {
+            console.log('advance rejected (normal if another client already advanced):', data.error);
+        }
     }
 
     // ---- BUZZER CLICK ----
@@ -485,8 +531,8 @@
 
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            alert('Please sign in first.');
-            window.location.href = "login.html";
+            resultBanner.textContent = 'Please sign in first.';
+            resultBanner.style.display = 'block';
             return;
         }
 
@@ -505,6 +551,7 @@
 
         if (data.ok) {
             myBuzzUsed = true;
+            iAmAnswering = true; // FIX #3: guard against checkBuzzStatus overrides
             buzzerBtn.style.display = 'none';
             answerInput.style.display = 'block';
             answerInput.disabled = false;
@@ -523,17 +570,21 @@
             buzzerBtn.style.display = 'none';
             checkBuzzStatus();
         } else if (data.error === 'someone_answering') {
+            // Someone else is currently answering — keep the buzzer
+            // visible but disabled briefly, then re-enable. The
+            // realtime buzz update will call checkBuzzStatus() once
+            // that person's answer is graded.
             buzzerBtn.disabled = false;
-            checkBuzzStatus();
         } else {
             buzzerBtn.disabled = false;
+            console.error('buzz failed:', data.error);
         }
     });
 
     // ---- ENTER KEY TO SUBMIT ----
 
     answerInput.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter' && event.key !== 'Space') return;
+        if (event.key !== 'Enter') return;
         submitAnswer();
     });
 
@@ -542,7 +593,7 @@
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            window.location.href = 'login.html';
+            //window.location.href = 'login.html';
             return;
         }
         myUserId = session.user.id;

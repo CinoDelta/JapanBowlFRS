@@ -105,13 +105,18 @@ module.exports = async (req, res) => {
                     supabase.from('match_players').update({ team_number: p.team_number }).eq('id', p.id)
                 ));
 
+                // Set question_started_at to 5 seconds from now, giving
+                // every player's browser time to load match.html, fetch
+                // data, and set up realtime before the read phase begins.
+                const firstQuestionStart = new Date(Date.now() + 5000).toISOString();
+
                 const { error: updateError } = await supabase
                     .from('matches')
                     .update({
                         status: 'in_progress',
                         question_order: questionOrder,
                         current_question_index: 0,
-                        question_started_at: new Date().toISOString(),
+                        question_started_at: firstQuestionStart,
                     })
                     .eq('id', match.id);
 
