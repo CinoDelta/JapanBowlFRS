@@ -31,9 +31,11 @@ let imgCounter = 0;
 const container = document.getElementById('deckListOne');
 const deckListHeader = document.getElementById('deckSearchHeader');
 const deckSearch = document.getElementById('deckSearch');
+const deckCreatorName = document.getElementById('thisDeckCreator');
 const deckName = document.getElementById('thisDeckName');
 const deckCardCount = document.getElementById('thisDeckCardCount');
 const singlePracticebutton = document.getElementById('singlePracticeSelect');
+const hostMatchButton = document.getElementById('hostMatchButton');
 
 let clientSidedDecks = {}
 let currentDeckId = 0;
@@ -97,6 +99,21 @@ function sakuraSwitch() {
     imgCounter = imgCounter > 1 ? 0 : imgCounter;
 }
 
+let ellipsisInterval;
+
+
+function satisfyingEllipsisChange() {
+    let number = 1;
+    let textModes = ["Creating match.", "Creating match..", "Creating match..."];
+    
+    ellipsisInterval = setInterval(() => {
+        hostMatchButton.textContent = textModes[number];
+        number++;
+        number = number > 2 ? 0 : number;
+    }, 500);
+    
+}
+
 function displayDeckInfo() {
     let selectedIndex = container.selectedIndex;
     let selectedOption = container.options[selectedIndex];
@@ -105,19 +122,62 @@ function displayDeckInfo() {
 
     let targetDeck = clientSidedDecks.find((deck) => deck.id === currentDeckId);
     
+    singlePracticebutton.style.display = 'block';
+    hostMatchButton.style.display = 'block';
 
     deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
-    deckName.innerHTML = `<i>Deck Name: </i><u>${targetDeck.name}</u>`;
+    deckName.innerHTML = `<i>Deck Name: </i>${targetDeck.name}`;
+    deckCreatorName.innerHTML = `<i>Deck Creator: </i> <u>${targetDeck.uploaderName}</u> `
 
     singlePracticebutton.onclick = () => {
         window.location.href = `singlePractice.html?id=${currentDeckId}`
     }
+
+    hostMatchButton.onclick = async () => {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            hostMatchButton.textContent = "Please log in to host a match!";
+            delay(2000).then(() => {
+                hostMatchButton.textContent = "Host Team Match!";
+            });
+        }
+
+        hostMatchButton.disabled = true;
+        hostMatchButton.textContent = "Creating match...";
+        satisfyingEllipsisChange();
+
+        const res = await fetch('/api/matches', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ deckId: currentDeckId }),
+        });
+        
+        const data = await res.json();
+
+        hostMatchButton.disabled = false;
+        clearInterval(ellipsisInterval);
+
+        hostMatchButton.textContent = "Host Team Match!";
+
+        if (!data.ok) {
+            alert('Failed to create a match:' + (data.error || 'unknown error'));
+            return;
+        }
+
+        window.location.href =`hostLobby.html?code=${data.code}`;
+    };
 
 
 }
 
 
 let sakuraInterval = null;
+
+hostMatchButton.style.display = 'none';
+singlePracticebutton.style.display = 'none';
 
 sakuraInterval = setInterval(sakuraSwitch, 500);
 loadDecks();

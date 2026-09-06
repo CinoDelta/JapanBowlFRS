@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan Bowl FRS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+</head>
+<body>
+
+  <nav class="top-nav" aria-label="Primary navigation" style="display:none;"></nav>
+
+  <header class="page-header" style="width: 50%; margin-bottom: 0.2rem; margin-top: 0.2rem;">
+    <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
+  </header>
+
+  <div class="game-box">
+
+    <div id="teams-panel">
+      <h2>TEAMS</h2>
+      <div class="team-info">
+        <h3 class="team-name">TEAM 1</h3>
+        <ol class="player-list">
+          <li>Loading...</li>
+        </ol>
+        <h3>TOTAL SCORE: 0</h3>
+      </div>
+    </div>
+
+    <div class="game-panel">
+      <div class="question-div" style="display:flex; justify-content:space-between; align-items:center; width:90%; margin-left: 5%; margin-right: 5%;">
+        <img class="category-image" src="images/Category.png" alt="Category icon">
+        <h2 id="current-category">CATEGORY: —</h2>
+        <img id="answer-type-icon" src="images/Answer_Types/123.png" alt="Answer type icon">
+      </div>
+
+      <div class="question-div" style="justify-content: space-between;">
+        <img class="category-image" src="images/sakura0.png" alt="Decoration">
+        <h2 id="current-question">QUESTION:<br>—</h2>
+        <img class="category-image" src="images/sakura0.png" alt="Decoration">
+      </div>
+
+      <p id="timer-display" style="display: block;">-- SECONDS LEFT</p>
+
+      <div id="question-image-area">
+        <img id="question-image" style="display:none; max-width:100%;">
+        <p id="no-image-text" style="display:block; text-align: center;">(No image provided)</p>
+      </div>
+
+      <div id="answer-area">
+        <p id="result-banner" style="display:none; font-size: 2rem;"></p>
+        <input id="answer-input" type="text" style="display:none;" placeholder="TYPE YOUR ANSWER HERE!">
+        <button id="buzzer-btn">BUZZ!</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="PracticeJS/supabaseclient.js"></script>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const matchCode = params.get('code');
+
+    // --- DOM refs ---
+    const teamsPanel = document.getElementById('teams-panel');
+    const categoryEl = document.getElementById('current-category');
+    const questionEl = document.getElementById('current-question');
+    const timerEl = document.getElementById('timer-display');
+    const answerTypeIcon = document.getElementById('answer-type-icon');
+    const questionImage = document.getElementById('question-image');
+    const noImageText = document.getElementById('no-image-text');
+    const buzzerBtn = document.getElementById('buzzer-btn');
+    const answerInput = document.getElementById('answer-input');
+    const resultBanner = document.getElementById('result-banner');
+
+    // --- Sounds ---
+    const correctSound = new Audio('sounds/correctJapanese.wav');
+    const earlySound = new Audio('sounds/earlyJapanese.wav');
+    const incorrectSound = new Audio('sounds/incorrectJapanese.wav');
+    const buzzerSound = new Audio('sounds/Buzzer.wav');
+
+    // --- State ---
+    let matchId = null;
+    let myUserId = null;
+    let myDisplayName = null;
+    let currentQuestionIndex = null;
+
+    // Timer phases: 'getready' -> 'reading' -> 'open' -> 'answering'
+    let timerPhase = 'getready';
+    let timerInterval = null;
+
+    let readTimeTotal = 0;
+    let questionStartedAt = 0;
+
+    let mainTimerTotal = 30;
+    let mainTimerRemaining = 30;
+
+    let answerTimerRemaining = 10;
+    let answerAutoSubmitTimeout = null;
+
+    let myBuzzUsed = false;
+    let answerSubmitted = false;
+    let soundPlayedForBuzz = false;
+    let soundPlayedForResult = false;
+
+    // FIX #3: This flag is true from the moment the local user's
+    // buzz POST succeeds until their answer is submitted/graded.
+    // While true, checkBuzzStatus() skips all UI changes so that
+    // a concurrent realtime-triggered re-check can't hide the
+    // answer input out from under the user mid-typing.
+    let iAmAnswering = false;
+
+    // ---- HELPERS ----
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    function getMainTimerForAnswerType(answerType) {
+        const japaneseTypes = ['JP', 'ひら', 'カナ', '漢'];
+        return japaneseTypes.includes(answerType) ? 60 : 30;
+    }
+
+    // ---- TEAMS PANEL ----
+    function renderTeams(players) {
+        const teamsMap = {};
+        players.forEach((p) => {
+            if (!teamsMap[p.team_number]) teamsMap[p.team_number] = [];
+            teamsMap[p.team_number].push(p);
+        });
+
+        teamsPanel.innerHTML = '<h2>TEAMS</h2>';
+
+        Object.keys(teamsMap).sort((a, b) => a - b).forEach((teamNum) => {
+            const teamPlayers = teamsMap[teamNum];
+            const totalScore = teamPlayers.reduce((sum, p) => sum + p.score, 0);
+            const div = document.createElement('div');
+            div.className = 'team-info';
+            div.innerHTML = `
+                <h3 class="team-name">TEAM ${teamNum}</h3>
+                <ol class="player-list">
+                    ${teamPlayers.map((p) => `<li>${p.display_name.includes('@') ? p.display_name.split('@')[0] : p.display_name} - Points: ${p.score}</li>`).join('')}
+                </ol>
+                <h3>TOTAL SCORE: ${totalScore}</h3>
+            `;
+            teamsPanel.appendChild(div);
+        });
+    }
+
+    async function loadPlayers() {
+        const res = await fetch(`/api/matches?code=${matchCode}`);
+        const data = await res.json();
+        if (!data.ok) return;
+        matchId = data.match.id;
+        renderTeams(data.players);
+    }
+
+    // ---- TIMER ----
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        clearTimeout(answerAutoSubmitTimeout);
+        answerAutoSubmitTimeout = null;
+    }
+
+    function startTimer() {
+        stopTimer();
+
+        timerInterval = setInterval(() => {
+            const elapsed = (Date.now() - questionStartedAt) / 1000;
+
+            // FIX #1: If elapsed is negative, the question hasn't actually
+            // started yet — the server set question_started_at to a few
+            // seconds in the future to let everyone load in. Show a
+            // countdown so players know it's about to begin.
+            if (elapsed < 0) {
+                timerPhase = 'getready';
+                timerEl.style.color = '#ffd54f';
+                timerEl.textContent = `GET READY! ${Math.ceil(-elapsed)}`;
+                buzzerBtn.style.display = 'none';
+                return;
+            }
+
+            if (timerPhase === 'getready') {
+                // Transition: the "get ready" period just ended
+                timerPhase = 'reading';
+                buzzerBtn.style.display = 'block';
+            }
+
+            if (timerPhase === 'reading') {
+                const readRemaining = Math.max(0, readTimeTotal - elapsed);
+
+                timerEl.textContent = 'QUESTION BEING READ OUT...';
+                timerEl.style.color = 'red';
+
+                if (readRemaining <= 0) {
+                    timerPhase = 'open';
+                    mainTimerRemaining = mainTimerTotal;
+                }
+
+            } else if (timerPhase === 'open') {
+                mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
+                const display = Math.ceil(mainTimerRemaining);
+
+                timerEl.style.color = '#ffd54f';
+                timerEl.textContent = `${display} SECOND${display === 1 ? '' : 'S'} LEFT`;
+
+                if (mainTimerRemaining <= 0) {
+                    stopTimer();
+                    timerEl.textContent = "TIME'S UP!";
+                    buzzerBtn.style.display = 'none';
+                    setTimeout(tryAdvance, 2000);
+                }
+
+            } else if (timerPhase === 'answering') {
+                answerTimerRemaining = Math.max(0, answerTimerRemaining - 0.25);
+                const display = Math.ceil(answerTimerRemaining);
+
+                timerEl.style.color = '#ff6b6b';
+                timerEl.textContent = `${display}s TO ANSWER`;
+            }
+        }, 250);
+    }
+
+    function enterAnswerPhase() {
+        timerPhase = 'answering';
+        answerTimerRemaining = 10;
+
+        clearTimeout(answerAutoSubmitTimeout);
+        answerAutoSubmitTimeout = setTimeout(() => {
+            if (!answerSubmitted && timerPhase === 'answering' && iAmAnswering) {
+                submitAnswer();
+            }
+        }, 10000);
+    }
+
+    function resumeOpenPhase() {
+        timerPhase = 'open';
+        clearTimeout(answerAutoSubmitTimeout);
+        iAmAnswering = false;
+        buzzerBtn.style.display = myBuzzUsed ? 'none' : 'block';
+        buzzerBtn.disabled = false;
+        answerInput.style.display = 'none';
+        answerInput.value = '';
+        answerInput.disabled = false;
+        resultBanner.style.display = 'none';
+    }
+
+    // ---- PERIODIC TIMER SYNC ----
+    // FIX #2: Every 15 seconds, re-fetch the server's authoritative
+    // question_started_at and re-anchor the local clock to it. This
+    // corrects any drift caused by JS thread pauses, tab throttling,
+    // or brief network hiccups — without disrupting the user like an
+    // alert() would.
+    setInterval(async () => {
+        if (currentQuestionIndex === null) return;
+        try {
+            const res = await fetch(`/api/match?code=${matchCode}`);
+            const data = await res.json();
+            if (data.ok && data.questionStartedAt) {
+                questionStartedAt = new Date(data.questionStartedAt).getTime();
+            }
+        } catch (e) {
+            console.error('timer sync failed:', e);
+        }
+    }, 15000);
+
+    // ---- QUESTION LOADING ----
+
+    function resetQuestionUI() {
+        myBuzzUsed = false;
+        answerSubmitted = false;
+        iAmAnswering = false;
+        soundPlayedForBuzz = false;
+        soundPlayedForResult = false;
+        timerPhase = 'getready';
+        buzzerBtn.style.display = 'none'; // hidden until get-ready ends
+        buzzerBtn.disabled = false;
+        answerInput.style.display = 'none';
+        answerInput.value = '';
+        answerInput.disabled = false;
+        resultBanner.style.display = 'none';
+        stopTimer();
+    }
+
+    async function loadQuestion() {
+        const res = await fetch(`/api/match?code=${matchCode}`);
+        const data = await res.json();
+        if (!data.ok) return;
+
+        if (data.status === 'finished') {
+            stopTimer();
+            categoryEl.textContent = 'MATCH FINISHED';
+            questionEl.innerHTML = '';
+            buzzerBtn.style.display = 'none';
+            answerInput.style.display = 'none';
+            timerEl.textContent = '';
+            return;
+        }
+
+        if (data.currentQuestionIndex !== currentQuestionIndex) {
+            currentQuestionIndex = data.currentQuestionIndex;
+            resetQuestionUI();
+
+            readTimeTotal = data.question?.readTime ?? 3;
+            mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType);
+            mainTimerRemaining = mainTimerTotal;
+            questionStartedAt = new Date(data.questionStartedAt).getTime();
+
+            // If loading mid-question (e.g. page refresh), figure out phase.
+            const elapsed = (Date.now() - questionStartedAt) / 1000;
+            if (elapsed < 0) {
+                timerPhase = 'getready';
+            } else if (elapsed < readTimeTotal) {
+                timerPhase = 'reading';
+            } else {
+                timerPhase = 'open';
+                mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
+            }
+
+            startTimer();
+        }
+
+        categoryEl.textContent = `CATEGORY: ${data.question?.category ?? '—'}`;
+        questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
+
+        if (data.question?.answerType) {
+            answerTypeIcon.src = `images/Answer_Types/${data.question.answerType}.png`;
+            answerTypeIcon.style.display = 'block';
+        } else {
+            answerTypeIcon.style.display = 'none';
+        }
+
+        if (data.question?.imgLink) {
+            questionImage.src = data.question.imgLink;
+            questionImage.style.display = 'block';
+            noImageText.style.display = 'none';
+        } else {
+            questionImage.style.display = 'none';
+            noImageText.style.display = 'block';
+        }
+
+        checkBuzzStatus();
+    }
+
+    // ---- BUZZ STATUS ----
+
+    async function checkBuzzStatus() {
+        if (currentQuestionIndex === null) return;
+
+        // FIX #3: If the local user just buzzed and is actively typing
+        // their answer, skip this entire function. Without this guard,
+        // a realtime-triggered re-check can race ahead of the database
+        // commit for the user's own buzz INSERT, see "no active buzz,"
+        // and hide the answer input mid-typing.
+        if (iAmAnswering) return;
+
+        const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${currentQuestionIndex}`);
+        const data = await res.json();
+        if (!data.ok) return;
+
+        // --- Someone got it correct ---
+        if (data.answeredCorrectly) {
+            const correctBuzz = data.buzzes.find((b) => b.result === 'correct');
+            buzzerBtn.style.display = 'none';
+            answerInput.style.display = 'none';
+            resultBanner.textContent = `${correctBuzz.displayName} says "${correctBuzz.guess}" — CORRECT!`;
+            resultBanner.style.display = 'block';
+
+            if (!soundPlayedForResult) {
+                soundPlayedForResult = true;
+                correctSound.play();
+            }
+
+            setTimeout(tryAdvance, 2000);
+            return;
+        }
+
+        // --- Someone is currently answering ---
+        if (data.activeBuzz) {
+            const isMe = data.activeBuzz.user_id === myUserId;
+            buzzerBtn.style.display = 'none';
+
+            if (!soundPlayedForBuzz) {
+                soundPlayedForBuzz = true;
+                buzzerSound.play();
+                if (data.activeBuzz.is_early) {
+                    delay(1200).then(() => earlySound.play());
+                }
+            }
+
+            if (isMe && !answerSubmitted) {
+                answerInput.style.display = 'block';
+                answerInput.disabled = false;
+                answerInput.placeholder = 'Type your answer...';
+                timerEl.style.display = 'block';
+                if (timerPhase !== 'answering') {
+                    enterAnswerPhase();
+                }
+            } else if (!isMe) {
+                answerInput.style.display = 'block';
+                answerInput.disabled = true;
+                timerEl.style.display = 'none'; // timer doesn't show when there is someone else answering
+                answerInput.placeholder = `${data.activeBuzz.displayName} is answering...`;
+                if (timerPhase !== 'answering') {
+                    enterAnswerPhase();
+                }
+            } else {
+              timerEl.style.display = 'block';
+            }
+
+            resultBanner.style.display = 'none';
+            return;
+        } else {
+          timerEl.style.display = 'block';
+        }
+
+        // --- No active buzz: check latest resolved ---
+        const resolvedBuzzes = data.buzzes.filter((b) => b.result !== null);
+        if (resolvedBuzzes.length > 0) {
+            const latest = resolvedBuzzes[resolvedBuzzes.length - 1];
+
+            if (latest.result === 'incorrect' && !soundPlayedForResult) {
+                soundPlayedForResult = true;
+                incorrectSound.play();
+
+                resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
+                resultBanner.style.display = 'block';
+
+                const myBuzz = data.buzzes.find((b) => b.user_id === myUserId);
+                if (myBuzz) myBuzzUsed = true;
+
+                setTimeout(() => {
+                    soundPlayedForBuzz = false;
+                    soundPlayedForResult = false;
+                    if (timerPhase === 'answering') {
+                        resumeOpenPhase();
+                    }
+                }, 2000);
+                return;
+            }
+        }
+
+        // --- Nobody buzzed yet, or we already processed the last incorrect ---
+        const myPreviousBuzz = (data.buzzes || []).find((b) => b.user_id === myUserId);
+        if (myPreviousBuzz) myBuzzUsed = true;
+
+        buzzerBtn.style.display = myBuzzUsed ? 'none' : 'block';
+        answerInput.style.display = 'none';
+        resultBanner.style.display = 'none';
+    }
+
+    // ---- SUBMITTING AN ANSWER ----
+
+    async function submitAnswer() {
+        if (answerSubmitted) return;
+
+        const guess = answerInput.value.trim() || '(no answer)';
+        answerInput.disabled = true;
+        answerSubmitted = true;
+        clearTimeout(answerAutoSubmitTimeout);
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        const res = await fetch('/api/buzzer', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode, questionIndex: currentQuestionIndex, guess }),
+        });
+
+        const data = await res.json();
+
+        if (!data.ok) {
+            // FIX #2: No alert — just log it and show in the result banner.
+            console.error('Could not submit answer:', data.error);
+            resultBanner.textContent = 'Error submitting answer.';
+            resultBanner.style.display = 'block';
+            iAmAnswering = false;
+            return;
+        }
+
+        answerInput.style.display = 'none';
+        resultBanner.textContent = `${myDisplayName} says: "${guess}"`;
+        resultBanner.style.display = 'block';
+
+        await delay(2000);
+
+        resultBanner.textContent = `That's ${data.result.toUpperCase()}!`;
+
+        if (data.result === 'correct') {
+            correctSound.play();
+            iAmAnswering = false;
+            await delay(2000);
+            tryAdvance();
+        } else {
+            incorrectSound.play();
+            soundPlayedForBuzz = false;
+            soundPlayedForResult = false;
+            await delay(2000);
+            resumeOpenPhase(); // this also sets iAmAnswering = false
+        }
+    }
+
+    // ---- ADVANCING ----
+
+    async function tryAdvance() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) return;
+
+        const res = await fetch('/api/match', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode }),
+        });
+
+        const data = await res.json();
+
+        // FIX #2: No alert — just log failures silently. The server
+        // rejects duplicate advances and "not resolved" attempts,
+        // which are expected when multiple clients try at once.
+        if (!data.ok) {
+            console.log('advance rejected (normal if another client already advanced):', data.error);
+        }
+    }
+
+    // ---- BUZZER CLICK ----
+
+    buzzerBtn.addEventListener('click', async () => {
+        if (myBuzzUsed) return;
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            resultBanner.textContent = 'Please sign in first.';
+            resultBanner.style.display = 'block';
+            return;
+        }
+
+        buzzerBtn.disabled = true;
+
+        const res = await fetch('/api/buzzer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode }),
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+            myBuzzUsed = true;
+            iAmAnswering = true; // FIX #3: guard against checkBuzzStatus overrides
+            buzzerBtn.style.display = 'none';
+            answerInput.style.display = 'block';
+            answerInput.disabled = false;
+            answerInput.placeholder = 'Type your answer...';
+            answerInput.focus();
+
+            buzzerSound.play();
+            if (data.buzz?.is_early) {
+                delay(1200).then(() => earlySound.play());
+            }
+            soundPlayedForBuzz = true;
+
+            enterAnswerPhase();
+        } else if (data.error === 'already_buzzed') {
+            myBuzzUsed = true;
+            buzzerBtn.style.display = 'none';
+            checkBuzzStatus();
+        } else if (data.error === 'someone_answering') {
+            // Someone else is currently answering — keep the buzzer
+            // visible but disabled briefly, then re-enable. The
+            // realtime buzz update will call checkBuzzStatus() once
+            // that person's answer is graded.
+            buzzerBtn.disabled = false;
+        } else {
+            buzzerBtn.disabled = false;
+            console.error('buzz failed:', data.error);
+        }
+    });
+
+    // ---- ENTER KEY TO SUBMIT ----
+
+    answerInput.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        submitAnswer();
+    });
+
+    // ---- INIT ----
+
+    async function init() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            //window.location.href = 'login.html';
+            return;
+        }
+        myUserId = session.user.id;
+        myDisplayName = session.user.user_metadata?.full_name ?? session.user.email;
+
+        await loadPlayers();
+        await loadQuestion();
+
+        supabaseClient
+            .channel(`match-players-${matchId}`)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` },
+                () => loadPlayers()
+            )
+            .subscribe();
+
+        supabaseClient
+            .channel(`match-state-${matchId}`)
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` },
+                () => loadQuestion()
+            )
+            .subscribe();
+
+        supabaseClient
+            .channel(`match-buzzes-${matchId}`)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'buzzes', filter: `match_id=eq.${matchId}` },
+                () => checkBuzzStatus()
+            )
+            .subscribe();
+    }
+
+    init();
+  </script>
+
+</body>
+</html>

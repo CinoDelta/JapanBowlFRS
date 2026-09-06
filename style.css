@@ -5,7 +5,23 @@
     --background-color: rgba(4, 16, 48, 0.63);
     --cherry: rgb(244, 182, 194);
     --darkerCherry: rgb(231, 138, 167);
+    --darkestCherry: rgb(129, 45, 72);
     --white: rgb(255, 255, 255);
+    --infoBackground: rgba(40, 3, 25, 0.7);
+    --lighterCherry: rgb(254, 218, 226);
+    --maruRed: rgb(212, 7, 0);
+    --maruRedTransparent: rgba(212, 7, 0, 0.4);
+    --lighterMaruRed: rgb(242, 101, 96);
+    --lighterMaruRedTransparenct: rgba(242, 101, 96, 0.4);
+    --batsuBlue: rgb(0, 18, 212);
+    --batsuBlueTransparent: rgba(0, 18, 212, 0.4);
+    --lighterBatsuBlue: rgb(100, 110, 230);
+    --lighterBatusBlueTransparent: rgba(100, 110, 230, 0.4);
+}
+
+html {
+  scrollbar-width: none;          /* Modern standard: Hides scrollbar for Firefox and Chrome */
+  -ms-overflow-style: none;       /* Hides scrollbar for Internet Explorer and Edge */
 }
 
 body {
@@ -97,6 +113,10 @@ h2 {
     font-size: 2rem;
 }
 
+h3 {
+    font-size: 1.25rem;
+}
+
 .display-box {
     display:flex;
     border-radius: .6rem;
@@ -108,7 +128,7 @@ h2 {
     border: .3rem dashed rgba(255, 255, 255, 1);
 }
 
-.display-box h2 {
+.display-box h2, h3{
     padding-left: 1rem;
     background-image: linear-gradient(45deg, rgb(255, 155, 250), rgb(255, 255, 255));
     -webkit-background-clip: text;
@@ -120,6 +140,12 @@ h2 {
     padding-right: 1rem;
     animation: colorFrames 10s ease infinite;
     background-size: 200%;
+    -webkit-text-stroke: 1px rgba(255, 255, 255, 0.5);
+}
+
+.display-box label {
+    color: var(--lighterCherry);
+    font-size: 1.5rem;
 }
 
 @keyframes colorFrames {
@@ -136,7 +162,7 @@ h2 {
 
 .info-box {
   position: relative;
-  background: rgba(40, 3, 25, 0.7); /* Your inner background color */
+  background: var(--infoBackground);
   border-radius: 16px;
   box-shadow: 0 6px 18px rgba(40, 3, 25, .7);
   border: 0.3rem solid rgba(40, 3, 25, 0.7);
@@ -166,10 +192,19 @@ h2 {
 
 #timer-display {
     font-size: 2rem;
+    -webkit-text-stroke: 1px black;
     font-weight: bold;
     min-width: 90px;
     text-align: center;
     font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+}
+
+#start-match-btn {
+    color: var(--lighterMaruRed);
+}
+
+#end-match-btn {
+    color: var(--lighterBatsuBlue);
 }
  /* images to fit */
 .timer-side-image {
@@ -180,8 +215,8 @@ h2 {
 }
 
 .sakura-image{
-    width: 48px;
-    height: 48px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
     transform: scale(2);
 }
@@ -191,6 +226,13 @@ h2 {
     height: 48px;
     object-fit: contain;
     transform: scale(2);
+}
+
+#answer-type-icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    transform: scale(1.5);
 }
 
 .category-container {
@@ -323,7 +365,7 @@ div {
 
 input::placeholder {
   color: #f4acf1;     
-  font-size: 1.2rem;    
+  font-size: auto;    
   font-style: italic;  
   font-weight: bold;    
   letter-spacing: 1px;  
@@ -435,53 +477,24 @@ input::placeholder {
     white-space: normal;
 }
 
-/* Hey hello this is the mobile space*/
-@media (max-width: 700px) {
-    .basicFlexDiv {
-        flex-direction: column;
-        gap: 0.75rem;
-    }
+.display-box button {
+    width: 50%;
+    max-height: 6rem;
+    height: auto;
+    flex: 0 0 auto;
+    background-color: var(--infoBackground);
+    color: var(--cherry);
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 2rem;
+    padding: 0rem 0.5rem;
+    margin: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    margin-bottom: 0.5rem;
+    margin-top: 0.5rem;
 
-    #deckList,
-    #deckListOne {
-        width: 100%;
-        min-height: 18rem;
-        max-height: 22rem;
-        height: 22rem;
-        margin-top: 1rem;
-    }
-
-    #deckListOne option {
-        font-size: 1.1rem;
-        margin-left: 0.3rem;
-        margin-right: 0.3rem;
-    }
-
-    h2 {
-        font-size: 1.4rem;
-    }
-
-    .page-content p {
-        font-size: 1.1rem;
-    }
-
-    .display-box {
-        width: 100%;
-        text-align: center;
-    }
-
-    .display-box p {
-        font-size: 1.1rem;
-
-    }
-
-    .page-header {
-        width: 100%;
-    }
-    .top-nav {
-        height: auto;
-        padding-bottom: 0rem;
-    }
 }
 
 
@@ -567,6 +580,7 @@ button {
     border-radius: 10px;
     cursor: pointer;
     transition: transform 0.2s, opacity 0.2s;
+    border: .3rem solid
 }
 
 button:hover {
@@ -618,7 +632,7 @@ button:disabled {
 
 p {
     font-size: 1.4rem;
-    text-align: left;
+    text-align: center;
     font-family: Tahoma, Verdana, Segoe, sans-serif; font-size: 24px; font-style: normal;
 }
 
@@ -630,7 +644,9 @@ p {
 
 li {
     font-size: 1.4rem;
-    list-style-type: dashed;
+    list-style-type: none;
+    color: var(--lighterCherry);
+    font-family: Tahoma, Verdana, Segoe, sans-serif; font-size: 24px; font-style: normal;
 }
 
 form {
@@ -643,6 +659,13 @@ form {
     background-color: black;
     color: var(--darkerCherry);
 }
+
+.info-box input::placeholder {
+    color: var(--darkerCherry);
+    font-style: italic;
+    font-size: auto;
+}
+
 
 input {
     font-family: 'Courier New', Courier, monospace;
@@ -683,3 +706,261 @@ input[type="file"]::file-selector-button:hover {
 a {
     color: var(--darkerCherry);
 }
+
+/* GAME AREA */
+
+.game-box {
+    display:flex;
+    border-radius: .6rem;
+    gap: 1rem;
+    background-color: rgba(139, 255, 139, 0.4);
+    padding-left: 1%;
+    padding-right: 1rem;
+    border: .3rem dashed rgba(255, 255, 255, 1);
+    width: 100%;
+    height: auto;
+    padding-bottom: 1rem;
+    padding-top: 1rem;
+}
+
+#teams-panel {
+  position: relative;
+  background: var(--darkestCherry);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(40, 3, 25, .7);
+  border: 0.3rem solid rgba(40, 3, 25, 0.7);
+  background-clip: padding-box;
+  width: 25%;
+  text-align: center;
+  color: var(--lighterMaruRed);
+}
+
+#teams-panel h2 {
+    color: var(--lighterMaruRed);
+    -webkit-text-stroke: 1px white;
+}
+
+.team-info {
+    background-color: var(--lighterCherry);
+    border: 3px solid white;
+}
+
+
+
+.team-info h3{
+    font-size: 1.5rem;
+    -webkit-text-stroke: 1px black;
+}
+
+.player-list {
+
+}
+
+.player-list li {
+    color: black;
+    font-size: 1.3rem;
+    width: 100%;
+    font-family: Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.game-panel {
+  background-color: rgba(204, 255, 175, 0.895);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(40, 3, 25, .7);
+  border: 0.3rem solid rgba(255, 255, 255, 1);
+  background-clip: padding-box;
+  width: 75%;
+  color: var(--lighterMaruRed);
+  height: auto;
+}
+
+.game-panel h2 {
+    margin-top: 0rem;
+    margin-bottom: 0rem;
+    padding-top: 1rem;
+    padding-bottom: 0rem;
+    padding-left: 1rem;
+    color: var(--maruRed);
+    -webkit-text-stroke: 1px white;
+}
+
+
+#current-category {
+    color: var(--lighterBatsuBlue);
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+#current-question {
+    color: var(--lighterMaruRed);
+    font-size: 2rem;
+    margin-bottom: 2rem;
+}
+
+#answer-area {
+
+    justify-content: center;
+    padding-top: 1rem;
+    overflow: hidden;
+
+    border-radius: .6rem;
+}
+
+#answer-area input {
+    color: black;
+    font-style: italic;
+    font-size: 1.5rem;
+    width: 90%;
+    margin-left: 5%;
+    margin-right: 5%;
+    border: .3rem dashed black;
+    height: 3rem;
+}
+
+
+#answer-area input::placeholder {
+    color: black;
+    font-style: italic;
+    font-size: 1rem;
+}
+
+#question-image {
+    border: .3rem solid black;
+    width: 50%;
+    margin-left: 25%;
+    margin-right: 25%;
+}
+
+#question-image-area {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: .5rem;
+}
+
+.question-div {
+    display:flex; 
+    gap: 3rem; 
+    align-items:center; 
+    width:90%; 
+    margin-left: 5%; 
+    margin-right: 5%;
+}
+
+#buzzer-btn {
+    margin-left: 5%;
+    margin-right: 5%;
+    text-align: center;
+    width: 90%;
+    font-size: 2rem;
+    font-style: italic;
+    color: var(--darkestCherry);
+    background-color: var(--lighterMaruRedTransparenct);
+}
+
+
+/* Hey hello this is the mobile space*/
+@media (max-width: 700px) {
+    .basicFlexDiv {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    #deckList,
+    #deckListOne {
+        width: 100%;
+        min-height: 18rem;
+        max-height: 22rem;
+        height: 22rem;
+        margin-top: 1rem;
+    }
+
+    #deckListOne option {
+        font-size: 1.1rem;
+        margin-left: 0.3rem;
+        margin-right: 0.3rem;
+    }
+
+    h2 {
+        font-size: 1.4rem;
+    }
+
+    .page-content p {
+        font-size: 1.1rem;
+    }
+
+    .display-box {
+        width: 100%;
+        text-align: center;
+    }
+
+    .display-box p {
+        font-size: 1.1rem;
+
+    }
+
+    .page-header {
+        width: 100%;
+    }
+    .top-nav {
+        height: auto;
+        padding-bottom: 0rem;
+    }
+
+    #current-category {
+        font-size: 1.3rem;
+    }
+
+    #current-question {
+        font-size: 1.2rem;
+    }
+
+    #timer-display { 
+        font-size: 1.6rem;
+    }
+
+    .game-box {
+        display: block;
+        justify-content: center;
+    }
+
+    .game-panel {
+        width: 90%;
+        margin-left: 5%;
+        margin-right: 5%;
+    }
+
+    #teams-panel{
+        width: 100%;
+    }
+    .sakura-image{
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        transform: scale(1);
+    }
+
+    .category-image {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;   
+        transform: scale(1.5);
+    }
+
+    #answer-type-icon {         
+        width: 48px;
+        height: 48px;  
+        object-fit: contain;
+        transform: scale(1.5);
+    }       
+
+    .question-div {
+        display:flex; 
+        gap: 1rem; 
+        align-items:center; 
+        width:90%; 
+        margin-left: 5%; 
+        margin-right: 5%;
+    }
+
+}
+
+     
