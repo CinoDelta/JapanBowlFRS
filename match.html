@@ -10,49 +10,49 @@
 <body>
 
   <nav class="top-nav" aria-label="Primary navigation" style="display:none;"></nav>
-  </nav>
 
   <header class="page-header" style="width: 50%; margin-bottom: 0.2rem; margin-top: 0.2rem;">
     <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
   </header>
 
-
-
-  <main class="page-content">
-    <h2>
-      Match Lobby
-
-    </h2>
-    
-  </main>
-
-
   <div class="game-box">
 
-      <div id="teams-panel"> 
-        <h2>TEAMS</h2>
+    <div id="teams-panel">
+      <h2>TEAMS</h2>
+    </div>
 
-        <div class="team-info">
-          <h3 class="team-name">TEAM 1</h3>
-
-          <ol class="player-list">
-            <li>opara88daniel - Points: 5</li>
-            <li>clashnoob - Points: 5</li>
-          </ol>
-
-          <h3>TOTAL SCORE: 10</h3>
-        </div>
-
+    <div class="game-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <img class="category-image" src="images/Category.png" alt="Category icon">
+        <h2 id="current-category">CATEGORY: History</h2>
+        <img id="answer-type-icon" src="images/Answer_Types/ABC.png" alt="" style="width:64px; height:64px; display:block;">
       </div>
 
-      <div class="game-panel">
-          <h2 id="current-category">CATEGORY: History</h2>
-          <h2 id="current-question">QUESTION: What was the capital of Japan before Tokyo?</h2>
+      <div style="display:flex; justify-content:center; align-items:center;">
+        <img class="category-image" src="images/sakura0.png" alt="Category icon">
 
+        <h2 id="current-question">QUESTION:
+          <br>
+           How many chucks could a woodchuck chuck if a woodchuck could chuck wood?</h2>
       </div>
+      
+
+
+      <p id="timer-display">10 SECONDS LEFT</p>
+
+      <div id="question-image-area">
+        <img id="question-image" style="display:block; max-width:100%;">
+        <p id="no-image-text" style="display:block; text-align: center;">(No image provided)</p>
+      </div>
+
+      <div id="answer-area">
+        <p id="result-banner" style="display:block; font-size: 2rem;"></p>
+        <input id="answer-input" type="text" style="display:block;" placeholder="TYPE YOUR ANSWER HERE!" > <!--disabled -->
+        <button id="buzzer-btn">BUZZ!</button>
+      </div>
+    </div>
+
   </div>
-
-
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="PracticeJS/supabaseclient.js"></script>
@@ -61,21 +61,334 @@
     const params = new URLSearchParams(window.location.search);
     const matchCode = params.get('code');
 
+    const teamsPanel = document.getElementById('teams-panel');
+    const categoryEl = document.getElementById('current-category');
+    const questionEl = document.getElementById('current-question');
+    const timerEl = document.getElementById('timer-display');
+    const answerTypeIcon = document.getElementById('answer-type-icon');
+    const questionImage = document.getElementById('question-image');
+    const noImageText = document.getElementById('no-image-text');
+    const buzzerBtn = document.getElementById('buzzer-btn');
+    const answerInput = document.getElementById('answer-input');
+    const resultBanner = document.getElementById('result-banner');
 
+    const correctSound = new Audio('sounds/correctJapanese.wav');
+    const earlySound = new Audio('sounds/earlyJapanese.wav');
+    const incorrectSound = new Audio('sounds/incorrectJapanese.wav');
+    const buzzerSound = new Audio('sounds/Buzzer.wav');
 
+    let matchId = null;
+    let myUserId = null;
+    let myDisplayName = null;
+    let currentQuestionIndex = null;
+    let timeLimitSeconds = null;
+    let questionStartedAt = null;
+    let timerInterval = null;
+    let hasBuzzedThisQuestion = false;
+    let answerSubmittedThisQuestion = false;
+
+    function renderTeams(players) {
+        const teamsMap = {};
+        players.forEach((p) => {
+            if (!teamsMap[p.team_number]) teamsMap[p.team_number] = [];
+            teamsMap[p.team_number].push(p);
+        });
+
+        teamsPanel.innerHTML = '<h2>TEAMS</h2>';
+
+        Object.keys(teamsMap).sort((a, b) => a - b).forEach((teamNum) => {
+            const teamPlayers = teamsMap[teamNum];
+            // .reduce() walks every player, carrying forward a running total
+            // (starting at 0), adding each one's score to it.
+            const totalScore = teamPlayers.reduce((sum, p) => sum + p.score, 0);
+
+            const div = document.createElement('div');
+            div.className = 'team-info';
+            div.innerHTML = `
+                <h3 class="team-name">TEAM ${teamNum}</h3>
+                <ol class="player-list">
+                    ${teamPlayers.map((p) => `<li>${p.display_name} - Points: ${p.score}</li>`).join('')}
+                </ol>
+                <h3>TOTAL SCORE: ${totalScore}</h3>
+            `;
+            teamsPanel.appendChild(div);
+        });
+    }
+
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function loadPlayers() {
+        const res = await fetch(`/api/matches?code=${matchCode}`);
+        const data = await res.json();
+        if (!data.ok) return;
+        matchId = data.match.id;
+        renderTeams(data.players);
+    }
+
+    function startLocalTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            const elapsed = (Date.now() - questionStartedAt) / 1000;
+            const remaining = Math.max(0, Math.ceil(timeLimitSeconds - elapsed));
+            timerEl.textContent = `${remaining} SECOND${remaining === 1 ? '' : 'S'} LEFT`;
+
+            if (remaining <= 0) {
+                clearInterval(timerInterval);
+                if (!hasBuzzedThisQuestion) {
+                    // nobody buzzed in time -- try to advance; the server only
+                    // allows this once it independently confirms time is up.
+                    tryAdvance();
+                }
+            }
+        }, 250);
+    }
+
+    function resetQuestionUI() {
+        hasBuzzedThisQuestion = false;
+        answerSubmittedThisQuestion = false;
+        buzzerBtn.style.display = 'block';
+        buzzerBtn.disabled = false;
+        answerInput.style.display = 'none';
+        answerInput.value = '';
+        resultBanner.style.display = 'none';
+    }
+
+    async function loadQuestion() {
+        const res = await fetch(`/api/match?code=${matchCode}`);
+        const data = await res.json();
+        if (!data.ok) return;
+
+        if (data.status === 'finished') {
+            categoryEl.textContent = 'MATCH FINISHED';
+            questionEl.textContent = '';
+            buzzerBtn.style.display = 'none';
+            answerInput.style.display = 'none';
+            clearInterval(timerInterval);
+            return;
+        }
+
+        if (data.currentQuestionIndex !== currentQuestionIndex) {
+            currentQuestionIndex = data.currentQuestionIndex;
+            resetQuestionUI();
+        }
+
+        categoryEl.textContent = `CATEGORY: ${data.question?.category ?? '—'}`;
+        questionEl.textContent = `QUESTION: ${data.question?.question ?? '—'}`;
+
+        if (data.question?.answerType) {
+            answerTypeIcon.src = `images/Answer_Types/${data.question.answerType}.png`;
+            answerTypeIcon.style.display = 'block';
+        } else {
+            answerTypeIcon.style.display = 'none';
+        }
+
+        if (data.question?.imgLink) {
+            questionImage.src = data.question.imgLink;
+            questionImage.style.display = 'block';
+            noImageText.style.display = 'none';
+        } else {
+            questionImage.style.display = 'none';
+            noImageText.style.display = 'block';
+        }
+
+        timeLimitSeconds = data.timeLimitSeconds;
+        questionStartedAt = new Date(data.questionStartedAt).getTime();
+        startLocalTimer();
+
+        checkBuzzStatus();
+    }
+
+    let newBuzz = false; // control buzzer sounds
+
+    async function checkBuzzStatus() {
+        if (currentQuestionIndex === null) return;
+
+        const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${currentQuestionIndex}`);
+        const data = await res.json();
+        if (!data.ok) return;
+
+        if (!data.buzz) {
+            newBuzz = false;
+            buzzerBtn.style.display = 'block';
+            answerInput.style.display = 'none';
+            resultBanner.style.display = 'none';
+            return;
+        }
+
+        hasBuzzedThisQuestion = true;
+        buzzerBtn.style.display = 'none';
+
+        const isMe = data.buzz.user_id === myUserId;
+
+        if (isMe && !answerSubmittedThisQuestion) {
+            answerInput.style.display = 'block';
+            answerInput.disabled = false;
+            answerInput.placeholder = 'Type your answer...';
+            if(!newBuzz) {
+              newBuzz = true;
+              buzzerSound.play();
+              if (data.buzz?.is_early === true) {
+                await delay(1200);
+                earlySound.play();
+              }
+            }
+        } else if (!data.buzz.result) {
+            if(!newBuzz) {
+              newBuzz = true;
+              buzzerSound.play();
+              if (data.buzz?.is_early === true) {
+                await delay(1200);
+                earlySound.play();
+              }
+            }
+            answerInput.style.display = 'block';
+            answerInput.disabled = true;
+            answerInput.placeholder = `${data.buzz.displayName} is answering...`;
+        }
+
+        if (data.buzz.result && !isMe) {
+            // Onlookers see the guess + verdict together as soon as it's graded.
+            // + sound effects!
+
+            resultBanner.textContent = `${data.buzz.displayName} says "${data.buzz.guess}" — that's ${data.buzz.result.toUpperCase()}!`;
+            resultBanner.style.display = 'block';
+            answerInput.style.display = 'none';
+        }
+
+        if (data.buzz.result) {
+          // sfx here my bad
+          if (data.buzz.result.toUpperCase() === 'CORRECT') {
+            correctSound.play();
+          } else {
+            incorrectSound.play();
+          }
+        }
+    }
+
+    async function tryAdvance() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) return;
+
+        await fetch('/api/match', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode }),
+        });
+        // The resulting `matches` UPDATE arrives via realtime and calls loadQuestion() for everyone.
+    }
+
+    buzzerBtn.addEventListener('click', async () => {
+        if (hasBuzzedThisQuestion) return;
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            alert('Please sign in first.');
+            return;
+        }
+
+        const res = await fetch('/api/buzzer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode }),
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+            hasBuzzedThisQuestion = true;
+            buzzerBtn.style.display = 'none';
+            answerInput.style.display = 'block';
+            answerInput.disabled = false;
+            answerInput.placeholder = 'Type your answer...';
+            answerInput.focus();
+        } else if (data.error === 'already_buzzed') {
+            hasBuzzedThisQuestion = true;
+            checkBuzzStatus();
+        }
+    });
+
+    answerInput.addEventListener('keydown', async (event) => {
+        if (event.key !== 'Enter') return;
+
+        const guess = answerInput.value.trim();
+        if (!guess) return;
+
+        answerInput.disabled = true;
+        answerSubmittedThisQuestion = true;
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+
+        const res = await fetch('/api/buzzer', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode, questionIndex: currentQuestionIndex, guess }),
+        });
+
+        const data = await res.json();
+
+        if (!data.ok) {
+            alert('Could not submit answer: ' + data.error);
+            return;
+        }
+
+        answerInput.style.display = 'none';
+        resultBanner.textContent = `${myDisplayName} says: "${guess}"`;
+        resultBanner.style.display = 'block';
+
+        setTimeout(() => {
+            resultBanner.textContent = `That's ${data.result.toUpperCase()}!`;
+            setTimeout(tryAdvance, 2000);
+        }, 2000);
+    });
+
+    async function init() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            //window.location.href = 'login.html';
+           // return;
+        }
+        myUserId = session.user.id;
+        myDisplayName = session.user.user_metadata?.full_name ?? session.user.email;
+
+        await loadPlayers();
+        await loadQuestion();
+
+        supabaseClient
+            .channel(`match-players-${matchId}`)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'match_players', filter: `match_id=eq.${matchId}` },
+                () => loadPlayers()
+            )
+            .subscribe();
+
+        supabaseClient
+            .channel(`match-state-${matchId}`)
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${matchId}` },
+                () => loadQuestion()
+            )
+            .subscribe();
+
+        supabaseClient
+            .channel(`match-buzzes-${matchId}`)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'buzzes', filter: `match_id=eq.${matchId}` },
+                () => checkBuzzStatus()
+            )
+            .subscribe();
+    }
+
+    init();
   </script>
-
-  <br>
-
-
-
-  <br>
-
-
-
-
-
-
 
 </body>
 </html>

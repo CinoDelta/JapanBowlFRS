@@ -132,45 +132,6 @@ module.exports = async (req, res) => {
         }
         
         if (req.method === 'DELETE') {
-            const { host_user_id } = req.query;
-
-            user = await authenticate(req);
-
-            if (!user) {
-                res.statusCode = 401;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'not_authenticated' }));
-                return;
-            }
-
-            if (!user.id === host_user_id) {
-                res.status = 500;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({error: 'permission dewnied.'}));
-                return;
-            }
-
-
-            const { data, error } = await supabase
-                .from('matches')
-                .delete()
-                .eq('host_user_id', host_user_id)
-                .select();
-
-            if (error) {
-                res.statusCode = 500;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'internal_server_error: could not delete match' }));
-                return;
-            }
-
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, deletedMatch: data }));
-            return;
-        }
-
-        if (req.method === 'PATCH') {
             const user = await authenticate(req);
             if (!user) {
                 res.statusCode = 401;
@@ -178,58 +139,51 @@ module.exports = async (req, res) => {
                 res.end(JSON.stringify({ error: 'not_authenticated' }));
                 return;
             }
-
-            const { code, settings } = req.body;
-            if (!code || !settings) {
+ 
+            const { code } = req.query;
+            if (!code) {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'missing_fields' }));
+                res.end(JSON.stringify({ error: 'missing_code' }));
                 return;
             }
-
+ 
             const { data: match, error: matchError } = await supabase
                 .from('matches')
-                .select('id, host_user_id, status')
+                .select('id, host_user_id')
                 .eq('code', code.toUpperCase())
                 .single();
-
+ 
             if (matchError || !match) {
                 res.statusCode = 404;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'match_not_found' }));
                 return;
             }
-
+ 
             if (match.host_user_id !== user.id) {
                 res.statusCode = 403;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'not_host' }));
                 return;
             }
-
-            if (match.status !== 'lobby') {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'match_already_started' }));
-                return;
-            }
-
-            const { error: updateError } = await supabase
+ 
+            const { data, error } = await supabase
                 .from('matches')
-                .update({ settings })
-                .eq('id', match.id);
-
-            if (updateError) {
-                console.error('settings update error:', updateError);
+                .delete()
+                .eq('id', match.id)
+                .select();
+ 
+            if (error) {
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'internal_server_error' }));
                 return;
             }
-
+ 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true }));
+            res.end(JSON.stringify({ ok: true, deletedMatch: data }));
             return;
         }
 
