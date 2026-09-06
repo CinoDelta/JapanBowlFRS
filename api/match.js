@@ -142,13 +142,6 @@ module.exports = async (req, res) => {
 
                 // Checking if its the first second 
 
-                if ((Date.now() - match.question_started_at) / 1000 <= 1) {
-                    res.statusCode = 500;
-                    res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({error: 'internal_server_error: tried to advance to quickly!'}));
-                    return;
-                }
-
                 const { data: buzzes } = await supabase
                     .from('buzzes')
                     .select('result')
@@ -162,8 +155,15 @@ module.exports = async (req, res) => {
                 // the main timer pauses during each answer attempt. But we CAN
                 // check a generous upper bound: question_started_at + readTime
                 // + mainTimer + (10s per buzz attempt) should have elapsed.
-                // For simplicity, we trust the client's advance call here and
-                // just block advancing while someone is mid-answer.
+
+
+                const elapsed = (Date.now() - questionStartedAt) / 1000;
+
+                if (elapsed < 10) {
+                    res.statusCode = 400;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({error: 'elapsed_time_insufficient_to_advance'}));
+                }
 
                 if (!answeredCorrectly && someoneAnswering) {
                     res.statusCode = 400;
