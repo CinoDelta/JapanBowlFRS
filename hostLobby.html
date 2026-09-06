@@ -188,11 +188,6 @@
         return;
       }
 
-      if (data.match.settings != 'lobby') {
-        window.location.href = `match.html?code=${matchCode}`;
-      }
-
-
       const userId = session?.user?.id;
 
       let isHost = userId === data.match.host_user_id;

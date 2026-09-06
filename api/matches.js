@@ -54,6 +54,7 @@ module.exports = async (req, res) => {
                         code,
                         host_user_id: user.id,
                         deck_id: deckId,
+                        status: 'lobby',
                         settings: {
                             timeLimitSeconds: 30,
                             earlyThresholdSeconds: 3,
