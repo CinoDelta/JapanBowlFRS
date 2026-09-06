@@ -163,6 +163,7 @@ module.exports = async (req, res) => {
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify({error: 'elapsed_time_insufficient_to_advance'}));
+                    return;
                 }
 
                 if (!answeredCorrectly && someoneAnswering) {
