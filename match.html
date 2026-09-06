@@ -434,7 +434,7 @@
         const data = await res.json();
 
         if (!data.ok) {
-            alert('Could not submit answer: ' + data.error);
+            //alert('Could not submit answer: ' + data.error);
             return;
         }
 
@@ -486,6 +486,7 @@
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
             alert('Please sign in first.');
+            window.location.href = "login.html";
             return;
         }
 
