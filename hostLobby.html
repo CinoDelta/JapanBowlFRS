@@ -127,8 +127,7 @@
     let deckTotalCards = 0;
 
 
-    // whether or not to show start button
-    startMatchBtn.style.display = isHost ? 'inline' : 'none';
+
 
     async function loadDeckInfo(deckId) {
       const res = await fetch(`api/decks?id=${deckId}`);
@@ -197,6 +196,9 @@
       const userId = session?.user?.id;
 
       let isHost = userId === data.match.host_user_id;
+
+      // whether or not to show start button
+      startMatchBtn.style.display = isHost ? 'inline' : 'none';
 
 
       codeEl.textContent = data.match.code;

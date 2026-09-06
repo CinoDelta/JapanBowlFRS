@@ -353,8 +353,8 @@
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            //window.location.href = 'login.html';
-           // return;
+          window.location.href = 'login.html';
+          return;
         }
         myUserId = session.user.id;
         myDisplayName = session.user.user_metadata?.full_name ?? session.user.email;
