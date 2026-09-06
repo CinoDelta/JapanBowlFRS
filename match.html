@@ -41,7 +41,7 @@
         <img class="category-image" src="images/sakura0.png" alt="Decoration">
       </div>
 
-      <p id="timer-display">-- SECONDS LEFT</p>
+      <p id="timer-display" style="display: block;">-- SECONDS LEFT</p>
 
       <div id="question-image-area">
         <img id="question-image" style="display:none; max-width:100%;">
@@ -394,20 +394,26 @@
                 answerInput.style.display = 'block';
                 answerInput.disabled = false;
                 answerInput.placeholder = 'Type your answer...';
+                timerEl.style.display = 'block';
                 if (timerPhase !== 'answering') {
                     enterAnswerPhase();
                 }
             } else if (!isMe) {
                 answerInput.style.display = 'block';
                 answerInput.disabled = true;
+                timerEl.style.display = 'none'; // timer doesn't show when there is someone else answering
                 answerInput.placeholder = `${data.activeBuzz.displayName} is answering...`;
                 if (timerPhase !== 'answering') {
                     enterAnswerPhase();
                 }
+            } else {
+              timerEl.style.display = 'block';
             }
 
             resultBanner.style.display = 'none';
             return;
+        } else {
+          timerEl.style.display = 'none';
         }
 
         // --- No active buzz: check latest resolved ---
