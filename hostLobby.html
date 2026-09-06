@@ -168,6 +168,7 @@
       players.forEach(player => {
         const li = document.createElement('li');
         li.innerHTML = `${player.display_name} -- Team ${player.team_number} -- Score: ${player.score} pts`;
+        playerListEl.appendChild(li);
       });
     }
 
