@@ -127,7 +127,7 @@ function displayDeckInfo() {
 
     deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
     deckName.innerHTML = `<i>Deck Name: </i>${targetDeck.name}`;
-    deckCreatorName.innerHTML = `<i>Deck Creator: </i> <u>${targetDeck.uploader_name}</u> `
+    deckCreatorName.innerHTML = `<i>Deck Creator: </i> <u>${targetDeck.uploaderName}</u> `
 
     singlePracticebutton.onclick = () => {
         window.location.href = `singlePractice.html?id=${currentDeckId}`
