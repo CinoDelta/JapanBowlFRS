@@ -82,6 +82,15 @@
     const incorrectSound = new Audio('sounds/incorrectJapanese.wav');
     const buzzerSound = new Audio('sounds/Buzzer.wav');
 
+    const soundsVol = 0.7;
+    let changeVolume = (sound) => {sound.volume = soundsVol};
+
+    changeVolume(correctSound);
+    changeVolume(earlySound);
+    changeVolume(incorrectSound);
+    changeVolume(buzzerSound);
+
+
     // --- State ---
     let matchId = null;
     let myUserId = null;
@@ -386,8 +395,15 @@
                 soundPlayedForBuzz = true;
                 buzzerSound.play();
                 if (data.activeBuzz.is_early) {
+                    // Ok so here the question shouldn't be visible
                     delay(1200).then(() => earlySound.play());
                 }
+            }
+
+            if (data.activeBuzz.is_early) {
+                questionEl.style.display = 'none';
+            } else {
+                questionEl.style.display = 'block';
             }
 
             if (isMe && !answerSubmitted) {
@@ -414,6 +430,7 @@
             return;
         } else {
           timerEl.style.display = 'block';
+          questionEl.style.display = 'block';
         }
 
         // --- No active buzz: check latest resolved ---
