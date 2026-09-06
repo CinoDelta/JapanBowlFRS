@@ -140,6 +140,15 @@ module.exports = async (req, res) => {
                 // 2. The client says time is up (we verify server-side)
                 //    AND nobody is currently mid-answer (no unresolved buzz).
 
+                // Checking if its the first second 
+
+                if ((Date.now() - match.question_started_at) / 1000 <= 1) {
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({error: 'internal_server_error: tried to advance to quickly!'}));
+                    return;
+                }
+
                 const { data: buzzes } = await supabase
                     .from('buzzes')
                     .select('result')
