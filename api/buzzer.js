@@ -325,9 +325,9 @@ module.exports = async (req, res) => {
 
             let pointChange = 0;
             if (isCorrect) {
-                pointChange = 10;
+                pointChange = 5;
             } else if (buzz.is_early) {
-                pointChange = -10;
+                pointChange = -5;
             }
 
             // Update THIS specific buzz row by its id.
