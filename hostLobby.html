@@ -189,7 +189,7 @@
       }
 
       if (data.match.settings != 'lobby') {
-        window.location.href = `match.html?code=${code}`;
+        window.location.href = `match.html?code=${matchCode}`;
       }
 
 
@@ -254,7 +254,7 @@
           
           if (isHost) {
 
-            const res = await fetch(`/api/matches/?code=${code}`, {
+            const res = await fetch(`/api/matches/?code=${matchCode}`, {
               method: 'DELETE',
               headers: {
                   'Content-Type': 'application/json',
