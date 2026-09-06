@@ -39,7 +39,7 @@
 
     <ol id="player-list" style="list-style-type: none; padding-left: 0;">
 
-      <li>sansTheSkeleton@babies.com -- Team 1 -- Score: 0 pts</li>
+      <li>sansTheSkeleton@babies.com -- Team 1 -- Score: 0 pts </li>
 
     </ol>
 
@@ -48,6 +48,7 @@
       <h3>Match Settings</h3>
       <br>
 
+      <p>The time limit for writing complete japanese responses will be 2x of what is set here. (Including the early-answer penalty threshold). </p>
       <label>Question time limit (seconds):
         <input type="number" id="setting-time-limit" min="5" max="120">
       </label>
@@ -88,6 +89,8 @@
     </div>
         
 
+    <button id="start-match-btn">Start Match</button>
+
     <button id="end-match-btn">End Match</button>
   </div>
 
@@ -104,6 +107,7 @@
     const codeEl = document.getElementById('match-code');
     const playerListEl = document.getElementById('player-list');
     const endMatchBtn = document.getElementById('end-match-btn');
+    const startMatchBtn = document.getElementById('start-match-btn');
     const info = document.getElementById('code-info');
     
     const settingsSection = document.getElementById('settings-section');
@@ -121,6 +125,10 @@
 
     let matchId = null;
     let deckTotalCards = 0;
+
+
+    // whether or not to show start button
+    startMatchBtn.style.display = isHost ? 'inline' : 'none';
 
     async function loadDeckInfo(deckId) {
       const res = await fetch(`api/decks?id=${deckId}`);
@@ -156,13 +164,11 @@
       settingsSummary.textContent = parts.join(' • ');
     }
 
-    function displayPlayers(players) {
+    function displayPlayers(players, settings) {
       playerListEl.innerHTML = '';
       players.forEach(player => {
         const li = document.createElement('li');
-        li.textContent = `${player.display_name} -- Team ${player.team_number} -- Score: ${player.score} pts`;
-
-        playerListEl.appendChild(li);
+        li.innerHTML = `${player.display_name} -- Team ${player.team_number} -- Score: ${player.score} pts`;
       });
     }
 
@@ -183,6 +189,10 @@
         return;
       }
 
+      if (data.match.settings != 'lobby') {
+        window.location.href = `match.html?code=${code}`;
+      }
+
 
       const userId = session?.user?.id;
 
@@ -191,7 +201,7 @@
 
       codeEl.textContent = data.match.code;
 
-      displayPlayers(data.players);
+      displayPlayers(data.players, data.settings);
 
       if (matchId === null) {
         matchId = data.match.id;
@@ -213,6 +223,43 @@
         .subscribe();
 
         //awe sum sauce
+
+        startMatchBtn.addEventListener('click', async () => {
+          if (!matchId) return;
+          
+          // client side check
+
+          startMatchBtn.textContent = 'Starting Match...';
+          startMatchBtn.disabled = true;
+          
+          if (isHost) {
+            const res = await fetch(`/api/match/?matchId=${matchId}`, 
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`
+                }
+              }
+            );
+
+            const data = await res.json();
+
+            if (data.ok) {
+              startMatchBtn.textContent = 'Match started successfully'
+              window.location.href = `match.html?code=${code}`;
+            } else {
+              alert('Could not start the match. See logs for further instructions.');
+              startMatchBtn.textContent = 'Start Match';
+              startMatchBtn.disabled = false;
+            }
+
+
+
+
+          }
+          
+        })
 
         endMatchBtn.addEventListener('click', async () => {
           if (!matchId) return;

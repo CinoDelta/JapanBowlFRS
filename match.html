@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan Bowl FRS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+</head>
+<body>
+
+  <nav class="top-nav" aria-label="Primary navigation" style="display:none;"></nav>
+  </nav>
+
+  <header class="page-header" style="width: 50%; margin-bottom: 0.2rem; margin-top: 0.2rem;">
+    <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
+  </header>
+
+
+
+  <main class="page-content">
+    <h2>
+      Match Lobby
+
+    </h2>
+    
+  </main>
+
+
+  <div class="game-box">
+
+      <div id="teams-panel"> 
+        <h2>TEAMS</h2>
+
+        <div class="team-info">
+          <h3 class="team-name">TEAM 1</h3>
+
+          <ol class="player-list">
+            <li>opara88daniel - Points: 5</li>
+            <li>clashnoob - Points: 5</li>
+          </ol>
+
+          <h3>TOTAL SCORE: 10</h3>
+        </div>
+
+      </div>
+
+      <div class="game-panel">
+          <h2 id="current-category">CATEGORY: History</h2>
+          <h2 id="current-question">QUESTION: What was the capital of Japan before Tokyo?</h2>
+
+      </div>
+  </div>
+
+
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="PracticeJS/supabaseclient.js"></script>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const matchCode = params.get('code');
+
+
+
+  </script>
+
+  <br>
+
+
+
+  <br>
+
+
+
+
+
+
+
+</body>
+</html>

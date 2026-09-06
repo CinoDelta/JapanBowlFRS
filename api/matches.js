@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
                         host_user_id: user.id,
                         deck_id: deckId,
                         settings: {
-                            timeLimitSeconds: 15,
+                            timeLimitSeconds: 30,
                             earlyThresholdSeconds: 3,
                             teamsEnabled: false,
                             numTeams: null,
@@ -134,12 +134,22 @@ module.exports = async (req, res) => {
         if (req.method === 'DELETE') {
             const { host_user_id } = req.query;
 
-            if (!host_user_id) {
-                res.statusCode = 400;
+            user = await authenticate(req);
+
+            if (!user) {
+                res.statusCode = 401;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'missing_code' }));
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
                 return;
             }
+
+            if (!user.id === host_user_id) {
+                res.status = 500;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({error: 'permission dewnied.'}));
+                return;
+            }
+
 
             const { data, error } = await supabase
                 .from('matches')
