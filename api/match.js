@@ -157,7 +157,7 @@ module.exports = async (req, res) => {
                 // + mainTimer + (10s per buzz attempt) should have elapsed.
 
 
-                const elapsed = (Date.now() - new Date(data.questionStartedAt).getTime()) / 1000;
+                const elapsed = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
 
                 if (elapsed < 3) {
                     console.log(`ELAPSED TIME IS ${elapsed}`);
