@@ -215,8 +215,8 @@ h3 {
 }
 
 .sakura-image{
-    width: 48px;
-    height: 48px;
+    width: 24px;
+    height: 24px;
     object-fit: contain;
     transform: scale(2);
 }
@@ -225,13 +225,14 @@ h3 {
     width: 48px;
     height: 48px;
     object-fit: contain;
-    transform: scale(2);
+    transform: scale(3);
 }
 
 .answer-type-icon {
-    width: 48px;
-    height: 48px;
-    transform: scale(2);
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    transform: scale(3);
 }
 
 .category-container {
@@ -712,17 +713,19 @@ a {
     display:flex;
     border-radius: .6rem;
     gap: 1rem;
-    background-color: rgba(255, 139, 240, 0.4);
-    padding-left: .5rem;
-    padding-right: .5rem;
+    background-color: rgba(139, 255, 139, 0.4);
+    padding-left: 1%;
+    padding-right: 1rem;
     border: .3rem dashed rgba(255, 255, 255, 1);
     width: 100%;
     height: auto;
+    padding-bottom: 1rem;
+    padding-top: 1rem;
 }
 
 #teams-panel {
   position: relative;
-  background: var(--lighterMaruRed);
+  background: var(--darkestCherry);
   border-radius: 16px;
   box-shadow: 0 6px 18px rgba(40, 3, 25, .7);
   border: 0.3rem solid rgba(40, 3, 25, 0.7);
@@ -733,7 +736,7 @@ a {
 }
 
 #teams-panel h2 {
-    color: var(--batsuBlue);
+    color: var(--lighterMaruRed);
     -webkit-text-stroke: 1px white;
 }
 
@@ -755,6 +758,9 @@ a {
 
 .player-list li {
     color: black;
+    font-size: 1.3rem;
+    width: 100%;
+    font-family: Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .game-panel {
@@ -785,7 +791,6 @@ a {
     margin-bottom: 1rem;
     padding-right: 0rem;
     margin-right: 0rem;
-
 }
 
 #current-question {
@@ -818,7 +823,7 @@ a {
 #answer-area input::placeholder {
     color: black;
     font-style: italic;
-    font-size: 1.5rem;
+    font-size: 1rem;
 }
 
 #question-image {
@@ -833,6 +838,14 @@ a {
     padding: .5rem;
 }
 
+.question-div {
+    display:flex; 
+    gap: 3rem; 
+    align-items:center; 
+    width:90%; 
+    margin-left: 5%; 
+    margin-right: 5%;
+}
 
 #buzzer-btn {
     margin-left: 5%;
@@ -899,11 +912,57 @@ a {
     }
 
     #current-question {
-        font-size: 1.3rem;
+        font-size: 1.2rem;
     }
 
     #timer-display { 
         font-size: 1.6rem;
     }
+
+    .game-box {
+        display: block;
+        justify-content: center;
+    }
+
+    .game-panel {
+        width: 90%;
+        margin-left: 5%;
+        margin-right: 5%;
+    }
+
+    #teams-panel{
+        width: 100%;
+    }
+    .sakura-image{
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        transform: scale(1);
+    }
+
+    .category-image {
+        width: 48px;
+        height: 48px;
+        object-fit: contain;   
+        transform: scale(1.5);
+    }
+
+    #answer-type-icon {         
+        width: 48px;
+        height: 48px;  
+        object-fit: contain;
+        transform: scale(1.5);
+    }       
+
+    .question-div {
+        display:flex; 
+        gap: 1rem; 
+        align-items:center; 
+        width:90%; 
+        margin-left: 5%; 
+        margin-right: 5%;
+    }
+
 }
 
+     

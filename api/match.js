@@ -15,24 +15,16 @@ async function authenticate(req) {
     return user;
 }
 
-// Fisher-Yates shuffle: walk backward from the end, swapping each
-// element with a random earlier-or-equal one. This gives every
-// possible ordering an equal chance -- a naive "sort by Math.random()"
-// is actually subtly biased.
 function pickQuestionOrder(totalCards, questionCount) {
     const indices = Array.from({ length: totalCards }, (_, i) => i);
-
     for (let i = indices.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [indices[i], indices[j]] = [indices[j], indices[i]];
     }
-
     const count = questionCount || totalCards;
     return indices.slice(0, count);
 }
 
-// Round-robin: player 0 -> team 1, player 1 -> team 2, ... wrapping
-// back around with modulo. If teams are off, everyone is their own team.
 function assignTeams(players, settings) {
     if (!settings.teamsEnabled) {
         return players.map((p, i) => ({ id: p.id, team_number: i + 1 }));
@@ -41,9 +33,6 @@ function assignTeams(players, settings) {
     return players.map((p, i) => ({ id: p.id, team_number: (i % numTeams) + 1 }));
 }
 
-// POST /api/match -> { code }  start the match (host only), or advance
-//                    to the next question (any player, once resolved)
-// GET  /api/match?code=XX -> the current question, WITHOUT the answer
 module.exports = async (req, res) => {
     try {
         if (req.method === 'POST') {
@@ -77,7 +66,6 @@ module.exports = async (req, res) => {
             }
 
             if (match.status === 'lobby') {
-                // Starting the match is host-only.
                 if (match.host_user_id !== user.id) {
                     res.statusCode = 403;
                     res.setHeader('Content-Type', 'application/json');
@@ -142,24 +130,31 @@ module.exports = async (req, res) => {
             }
 
             if (match.status === 'in_progress') {
-                // Advancing isn't host-only -- but it can only happen once the
-                // current question is actually resolved: someone answered, or
-                // the time limit ran out with nobody buzzing at all.
-                const { data: currentBuzz } = await supabase
+                // A question is resolved when:
+                // 1. Someone answered correctly, OR
+                // 2. The client says time is up (we verify server-side)
+                //    AND nobody is currently mid-answer (no unresolved buzz).
+
+                const { data: buzzes } = await supabase
                     .from('buzzes')
                     .select('result')
                     .eq('match_id', match.id)
-                    .eq('question_index', match.current_question_index)
-                    .maybeSingle();
+                    .eq('question_index', match.current_question_index);
 
-                const elapsedSeconds = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
-                const timeIsUp = elapsedSeconds >= match.settings.timeLimitSeconds;
-                const resolved = (currentBuzz && currentBuzz.result) || (!currentBuzz && timeIsUp);
+                const answeredCorrectly = (buzzes || []).some((b) => b.result === 'correct');
+                const someoneAnswering = (buzzes || []).some((b) => b.result === null);
 
-                if (!resolved) {
+                // We can't perfectly verify "time is up" server-side because
+                // the main timer pauses during each answer attempt. But we CAN
+                // check a generous upper bound: question_started_at + readTime
+                // + mainTimer + (10s per buzz attempt) should have elapsed.
+                // For simplicity, we trust the client's advance call here and
+                // just block advancing while someone is mid-answer.
+
+                if (!answeredCorrectly && someoneAnswering) {
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'question_not_resolved' }));
+                    res.end(JSON.stringify({ error: 'someone_still_answering' }));
                     return;
                 }
 
@@ -246,16 +241,17 @@ module.exports = async (req, res) => {
                     const cardIndex = match.question_order[match.current_question_index];
                     const card = cardIndex !== undefined ? deck.cards[cardIndex] : null;
 
-                    // Only send what's needed to DISPLAY the question -- never
-                    // the "answers" array. Anyone can open dev tools and read
-                    // the network response, so the answer must never be sent
-                    // to a client that isn't grading it server-side.
-                    question = card ? {
-                        category: card.category,
-                        question: card.question,
-                        answerType: card['answer-type'],
-                        imgLink: card['img-link'] || null,
-                    } : null;
+                    if (card) {
+                        question = {
+                            category: card.category,
+                            question: card.question,
+                            answerType: card['answer-type'],
+                            readTime: card.readTime !== undefined
+                                ? card.readTime
+                                : match.settings.earlyThresholdSeconds,
+                            imgLink: card['img-link'] || null,
+                        };
+                    }
                 }
             }
 

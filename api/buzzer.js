@@ -16,7 +16,7 @@ async function authenticate(req) {
 }
 
 // POST  /api/buzzer -> { code }  buzz in for the current question
-// GET   /api/buzzer?code=XX&questionIndex=N -> who (if anyone) has buzzed
+// GET   /api/buzzer?code=XX&questionIndex=N -> active buzz + all resolved buzzes
 // PATCH /api/buzzer -> { code, questionIndex, guess }  submit + grade an answer
 module.exports = async (req, res) => {
     try {
@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
 
             const { data: match, error: matchError } = await supabase
                 .from('matches')
-                .select('id, status, current_question_index, question_started_at, settings')
+                .select('id, status, current_question_index, question_started_at, settings, deck_id, question_order')
                 .eq('code', code.toUpperCase())
                 .single();
 
@@ -47,6 +47,39 @@ module.exports = async (req, res) => {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'match_not_active' }));
+                return;
+            }
+
+            // Check if someone is CURRENTLY answering (an unresolved buzz exists).
+            // If so, nobody else can buzz until that person's answer is graded.
+            const { data: activeBuzz } = await supabase
+                .from('buzzes')
+                .select('id, user_id')
+                .eq('match_id', match.id)
+                .eq('question_index', match.current_question_index)
+                .is('result', null)
+                .maybeSingle();
+
+            if (activeBuzz) {
+                res.statusCode = 409;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'someone_answering' }));
+                return;
+            }
+
+            // Check if this question was already answered correctly by anyone.
+            const { data: correctBuzz } = await supabase
+                .from('buzzes')
+                .select('id')
+                .eq('match_id', match.id)
+                .eq('question_index', match.current_question_index)
+                .eq('result', 'correct')
+                .maybeSingle();
+
+            if (correctBuzz) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'question_already_answered' }));
                 return;
             }
 
@@ -64,14 +97,28 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const elapsedSeconds = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
-            const isEarly = elapsedSeconds < match.settings.earlyThresholdSeconds;
+            // Determine if this is an early buzz by comparing elapsed time
+            // against the card's readTime (or the host's default threshold).
+            const { data: deck } = await supabase
+                .from('decks')
+                .select('cards')
+                .eq('id', match.deck_id)
+                .single();
 
-            // match_id + question_index is the PRIMARY KEY on buzzes -- Postgres
-            // itself only allows one such row to ever exist. If two players
-            // buzz within the same millisecond, the database (not either
-            // browser's clock) decides who wins: whichever insert commits
-            // first succeeds, and the other fails with a unique-violation.
+            let readTime = match.settings.earlyThresholdSeconds;
+            if (deck) {
+                const cardIndex = match.question_order[match.current_question_index];
+                const card = deck.cards[cardIndex];
+                if (card?.readTime !== undefined) {
+                    readTime = card.readTime;
+                }
+            }
+
+            const elapsedSeconds = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
+            const isEarly = elapsedSeconds < readTime;
+
+            // The unique constraint (match_id, question_index, user_id)
+            // prevents the same person buzzing twice on the same question.
             const { data: buzz, error: buzzError } = await supabase
                 .from('buzzes')
                 .insert({
@@ -85,7 +132,7 @@ module.exports = async (req, res) => {
                 .single();
 
             if (buzzError) {
-                if (buzzError.code === '23505') { // Postgres's standard code for "unique_violation"
+                if (buzzError.code === '23505') {
                     res.statusCode = 409;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify({ error: 'already_buzzed' }));
@@ -126,12 +173,13 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const { data: buzz, error: buzzError } = await supabase
+            // Get ALL buzzes for this question, ordered by time.
+            const { data: buzzes, error: buzzError } = await supabase
                 .from('buzzes')
-                .select('user_id, team_number, guess, result, created_at, is_early')
+                .select('user_id, team_number, guess, result, is_early, created_at')
                 .eq('match_id', match.id)
                 .eq('question_index', parseInt(questionIndex, 10))
-                .maybeSingle();
+                .order('created_at', { ascending: true });
 
             if (buzzError) {
                 res.statusCode = 500;
@@ -140,20 +188,38 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            let displayName = null;
-            if (buzz) {
-                const { data: playerRow } = await supabase
+            // The "active" buzz is the one with no result yet (someone currently answering).
+            const activeBuzz = (buzzes || []).find((b) => b.result === null) || null;
+            // A question is fully resolved if someone got it correct.
+            const answeredCorrectly = (buzzes || []).some((b) => b.result === 'correct');
+
+            // Look up display names for all buzzers in one query.
+            const userIds = [...new Set((buzzes || []).map((b) => b.user_id))];
+            let nameMap = {};
+            if (userIds.length > 0) {
+                const { data: players } = await supabase
                     .from('match_players')
-                    .select('display_name')
+                    .select('user_id, display_name')
                     .eq('match_id', match.id)
-                    .eq('user_id', buzz.user_id)
-                    .single();
-                displayName = playerRow?.display_name ?? null;
+                    .in('user_id', userIds);
+                if (players) {
+                    players.forEach((p) => { nameMap[p.user_id] = p.display_name; });
+                }
             }
+
+            const enriched = (buzzes || []).map((b) => ({
+                ...b,
+                displayName: nameMap[b.user_id] || null,
+            }));
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, buzz: buzz ? { ...buzz, displayName } : null }));
+            res.end(JSON.stringify({
+                ok: true,
+                buzzes: enriched,
+                activeBuzz: activeBuzz ? { ...activeBuzz, displayName: nameMap[activeBuzz.user_id] || null } : null,
+                answeredCorrectly,
+            }));
             return;
         }
 
@@ -187,31 +253,20 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            // Find THIS user's unresolved buzz for this question.
             const { data: buzz, error: buzzFetchError } = await supabase
                 .from('buzzes')
-                .select('user_id, is_early, result')
+                .select('id, user_id, is_early, result')
                 .eq('match_id', match.id)
                 .eq('question_index', questionIndex)
-                .single();
+                .eq('user_id', user.id)
+                .is('result', null)
+                .maybeSingle();
 
             if (buzzFetchError || !buzz) {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'no_buzz_found' }));
-                return;
-            }
-
-            if (buzz.user_id !== user.id) {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'not_your_buzz' }));
-                return;
-            }
-
-            if (buzz.result) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'already_answered' }));
+                res.end(JSON.stringify({ error: 'no_active_buzz' }));
                 return;
             }
 
@@ -233,71 +288,41 @@ module.exports = async (req, res) => {
 
             const normalize = (s) => s.trim().toLowerCase();
 
-            
-            // no i didn't write this function myself. 
             function getLevenshteinDistance(str1, str2) {
                 const track = Array(str2.length + 1).fill(null).map(() =>
-                Array(str1.length + 1).fill(null));
-                
-                for (let i = 0; i <= str1.length; i += 1) {
-                track[0][i] = i;
-                }
-                for (let j = 0; j <= str2.length; j += 1) {
-                track[j][0] = j;
-                }
-            
+                    Array(str1.length + 1).fill(null));
+                for (let i = 0; i <= str1.length; i += 1) track[0][i] = i;
+                for (let j = 0; j <= str2.length; j += 1) track[j][0] = j;
                 for (let j = 1; j <= str2.length; j += 1) {
-                for (let i = 1; i <= str1.length; i += 1) {
-                    const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-                    track[j][i] = Math.min(
-                    track[j][i - 1] + 1, // deletion
-                    track[j - 1][i] + 1, // insertion
-                    track[j - 1][i - 1] + indicator, // substitution
-                    );
-                }
-                }
-            
-                return track[str2.length][str1.length];
-            }
-            function checkAnswer(userInput, card, tolerance = 2) {
-                if (!userInput) return { correct: false, message: "No input provided." };
-
-                let bestMatch = null;
-                let lowestDistance = Infinity;
-                let matchedCard = null;
-
-                for (const validAnswer of card.answers) {
-                    const normalizedValid = validAnswer.trim().toLowerCase();
-                    
-                    // Calculate distance
-                    const distance = getLevenshteinDistance(normalizedInput, normalizedValid);
-                    
-                    // Keep track of the closest match found across ALL cards
-                    if (distance < lowestDistance) {
-                        lowestDistance = distance;
-                        bestMatch = normalizedValid;
-                        matchedCard = card;
+                    for (let i = 1; i <= str1.length; i += 1) {
+                        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+                        track[j][i] = Math.min(
+                            track[j][i - 1] + 1,
+                            track[j - 1][i] + 1,
+                            track[j - 1][i - 1] + indicator,
+                        );
                     }
                 }
-
-                //Determine if the closest match is within our typo tolerance
-                if (lowestDistance <= tolerance) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return track[str2.length][str1.length];
             }
 
+            function checkAnswerFuzzy(userInput, card, tolerance) {
+                for (const validAnswer of card.answers) {
+                    const distance = getLevenshteinDistance(
+                        normalize(userInput),
+                        normalize(validAnswer)
+                    );
+                    if (distance <= tolerance) return true;
+                }
+                return false;
+            }
 
-            const isCorrect = 
-            card['answer-type'] !== 'EN' ? 
-            (card.answers || []).some((a) => normalize(a) === normalize(guess)) 
-            : checkAnswer(normalize(guess), card, 2); // some leniency for english answers
+            const isCorrect = card['answer-type'] !== 'EN'
+                ? (card.answers || []).some((a) => normalize(a) === normalize(guess))
+                : checkAnswerFuzzy(guess, card, 2);
 
             const result = isCorrect ? 'correct' : 'incorrect';
-            // Correct always gains points. Wrong only costs points if it was
-            // an early buzz (matching "lose points if wrong, but only if
-            // they buzzered in early"); a late wrong answer costs nothing.
+
             let pointChange = 0;
             if (isCorrect) {
                 pointChange = 10;
@@ -305,11 +330,11 @@ module.exports = async (req, res) => {
                 pointChange = -10;
             }
 
+            // Update THIS specific buzz row by its id.
             const { error: updateBuzzError } = await supabase
                 .from('buzzes')
                 .update({ result, guess })
-                .eq('match_id', match.id)
-                .eq('question_index', questionIndex);
+                .eq('id', buzz.id);
 
             if (updateBuzzError) {
                 console.error('grade update error:', updateBuzzError);
@@ -319,18 +344,20 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const { data: playerRow, error: playerFetchError } = await supabase
-                .from('match_players')
-                .select('id, score')
-                .eq('match_id', match.id)
-                .eq('user_id', user.id)
-                .single();
-
-            if (!playerFetchError && playerRow) {
-                await supabase
+            if (pointChange !== 0) {
+                const { data: playerRow } = await supabase
                     .from('match_players')
-                    .update({ score: playerRow.score + pointChange })
-                    .eq('id', playerRow.id);
+                    .select('id, score')
+                    .eq('match_id', match.id)
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (playerRow) {
+                    await supabase
+                        .from('match_players')
+                        .update({ score: playerRow.score + pointChange })
+                        .eq('id', playerRow.id);
+                }
             }
 
             res.statusCode = 200;
