@@ -229,7 +229,7 @@
 
         clearTimeout(answerAutoSubmitTimeout);
         answerAutoSubmitTimeout = setTimeout(() => {
-            if (!answerSubmitted && timerPhase === 'answering') {
+            if (!answerSubmitted && timerPhase === 'answering' && iAmAnswering) {
                 submitAnswer();
             }
         }, 10000);
