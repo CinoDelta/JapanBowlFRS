@@ -159,7 +159,7 @@ module.exports = async (req, res) => {
 
                 const elapsed = (Date.now() - new Date(data.questionStartedAt).getTime()) / 1000;
 
-                if (elapsed < 1) {
+                if (elapsed < 3) {
                     console.log(`ELAPSED TIME IS ${elapsed}`);
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
