@@ -157,7 +157,7 @@ module.exports = async (req, res) => {
                 // + mainTimer + (10s per buzz attempt) should have elapsed.
 
 
-                const elapsed = (Date.now() - questionStartedAt) / 1000;
+                const elapsed = (Date.now() - match.question_started_at) / 1000;
 
                 if (elapsed < 10) {
                     res.statusCode = 400;
