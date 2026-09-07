@@ -189,9 +189,62 @@ module.exports = async (req, res) => {
                         return;
                     }
 
+                    const {data: players, error: playersError} = await supabase
+                        .from('match_players')
+                        .select('team_number, score')
+                        .eq('match_id', match.id);
+
+                    if (playersError) {
+                        res.statusCode = 500;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({error: 'internal_server_error'}));
+                        return;
+                    }
+
+                    
+                    let teamScores = new Array(match.settings.numTeams);
+
+                    for (let i = 0; i < current_players.length; i++) {
+                        teamScores[current_players[i].team_number - 1] += current_players[i].score; // updates our array of team scores.
+                    }
+
+                    let highestScore = -99999;
+                    let winningTeam = 0;
+                    let tyingTeams = [];
+
+                    // convoluted but works
+                    for (let i = 0; i < teamScores.length; i ++) {
+                        // Team Number: i + 1
+                        let teamNumber = i + 1;
+                        if (tyingTeams.length !== 0) {
+                            if (teamsScores[tyingTeams[0] - 1] < teamsScores[i]) // if the teams that are tied right now have a lower score than this team... 
+                            {
+                                tyingTeams = []; // set back to an empty array and update!
+                                winningTeam = teamNumber;
+                                highestScore = teamScores[i];
+                            }
+                        } 
+                        if (teamsScores[i] > highestScore) {
+                            tyingTeams = [];
+                            winningTeam = teamNumber;
+                            highestScore = teamsScores[i];
+                        } else if (teamsScores[i] === highestScore) { // if the current winning team 
+                            // if the current winning team isn't in tying teams, push both them and this new taem
+                            if (tyingTeams.find(element => element === winningTeam) === undefined) {
+                                tyingTeams = [];
+                                tyingTeams.push(winningTeam, teamNumber);
+                            } else {
+                                // otherwise, simply push this team number.
+                                tyingTeams.push(teamNumber); 
+                            }
+                        }
+                    }
+
+
+                    // sending back the winning team to the client
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ ok: true, status: 'finished' }));
+                    res.end(JSON.stringify({ ok: true, status: 'finished', winningTeam, tyingTeams}));
                     return;
                 }
 

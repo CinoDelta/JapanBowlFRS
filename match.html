@@ -300,11 +300,47 @@
 
         if (data.status === 'finished') {
             stopTimer();
-            categoryEl.textContent = 'MATCH FINISHED';
-            questionEl.innerHTML = '';
+            categoryEl.textContent = 'MATCH FINISHED!';
+            questionEl.textContent = '';
             buzzerBtn.style.display = 'none';
             answerInput.style.display = 'none';
             timerEl.textContent = '';
+
+            await delay(2000);
+
+            if(data.tyingTeams.length !== 0) {
+                questionEl.textContent = `After everything, there's still a tie for first!!`;
+                await delay(2000);
+                questionEl.textContent = `The tying teams for first are... `;
+                await delay(2000);
+                questionEl.textContent = `TEAMS ${() => {
+                    let result = '';
+                    for (let i = 0; i < tyingTeams.length; i ++) {
+                        result += `${(i === tyingTeams.length - 1) ? 'and ' + tyingTeams[i] + '!' : tyingTeams[i] + ' '}`; // "1 " + "5 "...
+                    }
+                    return result;
+                }}!!!`;
+            } else {
+               questionEl.textContent = `The winning team is...`;   
+                await delay(2000);
+                questionEl.textContent = `TEAM ${data.winningTeam}!!!`;
+            }
+
+            await delay(5000);
+
+            let timeLeft = 11;
+
+            newTimeInterval = setInterval(() => {
+                timeLeft --;
+                timerEl.textContent `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
+
+                if (timeLeft === 0) {
+                    // TO-DO: delete match server side at this exact interval
+                    clearInterval(newTimeInterval);
+                    window.location.href = 'deckCatalogue.html';
+                    return;
+                }
+            }, 1000)
             return;
         }
 
