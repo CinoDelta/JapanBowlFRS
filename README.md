@@ -11,4 +11,8 @@ Outside of the classroom and meetings, this simulator is intended to increase th
 Future features:
 Importing decks of other formats
 
+AI Usage:
+Claude was used for the use of complex backend debugging. (fixing my spaghetti code) ALL website design, CSS, HTML, and JavaScript code design are mine.
+
 Copyright (c) Daniel Opara. All Rights Reserved.
+ 
