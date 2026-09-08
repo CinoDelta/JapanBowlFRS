@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Japan Bowl FRS</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="images/favicon.png">
+</head>
+<body>
+
+  <nav class="top-nav" aria-label="Primary navigation">
+    <div class="nav-border nav-border-top"></div>
+    <div class="nav-links">
+      <a href="index.html" class="active">Back</a>
+    </div>
+    <div class="nav-border nav-border-bottom"></div>
+  </nav>
+
+  <div class="display-box" style="justify-content: left;">
+    <div class="info-box" style="width: 100%; text-align: left;"> 
+        <h2 id="form-title">How do I make a deck??!</h2>
+
+        <br>
+        <br>
+
+
+
+
+        <p>
+            Thanks for asking!
+            <br>
+            <br>
+            <br><br>
+
+            <b>Explaining the deck format:</b>
+            <br>
+            
+
+            <img src="images/deckExample.png" style="max-width: 33rem; border: .3rem solid white; margin-top:2rem;"> 
+
+            <br>
+            <br>
+            <b>"name"</b>: name of your deck. name it whatever!
+            <br>
+            <br>
+            <b>"category"</b>: the category of the question. can be anything! just dont make it too long or it fucks the CSS
+            <br>
+            <br>
+            <b>"question"</b>: the question! It can be pretty long. 
+            <br>
+            <br>
+            <b>"answers"</b>: an array that lists all the possible answers. if your answer is in english, ("answer-type: EN") the server allows a few typos to be made for correct answers.
+            <br>
+            <br>
+            <b>"answer-type"</b>: the japan bowl answer type, displayed at the top right of the question screen. tells you how to answer the question. the allowed types are as follows:
+            <br>
+            <br>
+            <b>漢</b> <b>JP</b> <b>EN</b> <b>ABC</b> <b>ひら</b> <b>カナ</b> <b>123</b>
+            <br>
+            <br>  
+            It must be exact or your deck will crash matches :( 
+            <br>
+            A server patch is in the works to prevent decks without this being uploaded.
+            <br>
+            <br>
+
+            <b>"read-Time"</b> how long a proctor would take to read the question. Stopwatch yourself reading the question like a proctor.
+            If anyone answers in this threshold it is equivalent to an early buzz in like actual toss-up; the same penaltys apply during a match.
+            <b>"img-link"</b> *(Optional)*: the link to the image you want to display for the image. 
+            Make sure to copy the image link exactly and paste. I reccomend <a href="https://catboxe.moe">catbox.moe</a> for better and shorter links!
+        </p>
+
+        <br>
+
+        <p>
+            If you're ready, head on to <a href ="uploadDeck.html">the deck upload</a> and start uploading!
+            Or take your time making a deck first. That's ok too!
+        </p>
+
+        
+    </div>
+  </div>
+  
+
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="PracticeJS/supabaseclient.js"></script>
+
+
+
+
+
+
+</body>
+</html>
