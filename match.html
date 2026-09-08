@@ -112,6 +112,15 @@
 
     let myBuzzUsed = false;
     let answerSubmitted = false;
+    // Set once the question has been settled (someone was right, everyone was
+    // wrong, or time ran out) so the reveal and the advance only happen once.
+    let questionOver = false;
+    // How many people are in the match, so we can tell when every single
+    // player has already buzzed and been graded on this question.
+    let totalPlayerCount = 0;
+    // Guards the end-of-match sequence, which is driven by a realtime event
+    // that can fire more than once.
+    let matchFinishHandled = false;
     let soundPlayedForBuzz = false;
     let soundPlayedForResult = false;
 
@@ -125,9 +134,44 @@
     // ---- HELPERS ----
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    function getMainTimerForAnswerType(answerType) {
+    // The host picks the answer window in the lobby (settings.timeLimitSeconds,
+    // 30 by default). Japanese answers take longer to type, so they get twice
+    // whatever the host set rather than a hardcoded 60.
+    function getMainTimerForAnswerType(answerType, baseSeconds) {
         const japaneseTypes = ['JP', 'ひら', 'カナ', '漢'];
-        return japaneseTypes.includes(answerType) ? 60 : 30;
+        const base = Number(baseSeconds) > 0 ? Number(baseSeconds) : 30;
+        return japaneseTypes.includes(answerType) ? base * 2 : base;
+    }
+
+    // "1", "1 and 2", "1, 2, and 3"
+    function formatTeamList(teams) {
+        if (teams.length === 1) return `${teams[0]}`;
+        if (teams.length === 2) return `${teams[0]} and ${teams[1]}`;
+        return `${teams.slice(0, -1).join(', ')}, and ${teams[teams.length - 1]}`;
+    }
+
+    // FIX: the buzzer used to be shown and hidden from a dozen different call
+    // sites, so a stale realtime callback or a phase change that skipped the
+    // get-ready -> reading transition could leave it hidden for a whole
+    // question — which is what stopped people early buzzing again after a
+    // wrong early buzz. Now every path funnels through here and the answer is
+    // derived from current state, so it can't get stuck.
+    function updateBuzzerVisibility() {
+        const canBuzz = !myBuzzUsed
+            && !questionOver
+            && !iAmAnswering
+            && (timerPhase === 'reading' || timerPhase === 'open');
+
+        buzzerBtn.style.display = canBuzz ? 'block' : 'none';
+        if (canBuzz) buzzerBtn.disabled = false;
+    }
+
+    // True once every player in the match has buzzed and been graded on this
+    // question, i.e. nobody is left who could still get it.
+    function everybodyHasBuzzed(buzzes) {
+        if (!totalPlayerCount) return false;
+        const graded = (buzzes || []).filter((b) => b.result !== null);
+        return graded.length >= totalPlayerCount;
     }
 
     // ---- TEAMS PANEL ----
@@ -161,6 +205,7 @@
         const data = await res.json();
         if (!data.ok) return;
         matchId = data.match.id;
+        totalPlayerCount = data.players.length;
         renderTeams(data.players);
     }
 
@@ -187,14 +232,13 @@
                 timerPhase = 'getready';
                 timerEl.style.color = '#ffd54f';
                 timerEl.textContent = `GET READY! ${Math.ceil(-elapsed)}`;
-                buzzerBtn.style.display = 'none';
+                updateBuzzerVisibility();
                 return;
             }
 
             if (timerPhase === 'getready') {
                 // Transition: the "get ready" period just ended
                 timerPhase = 'reading';
-                buzzerBtn.style.display = 'block';
             }
 
             if (timerPhase === 'reading') {
@@ -208,6 +252,12 @@
                     mainTimerRemaining = mainTimerTotal;
                 }
 
+                // The reading phase is when early buzzes happen, so the button
+                // has to be put up here every tick — not only on the
+                // get-ready -> reading transition, which a client that loaded
+                // straight into the reading phase never sees.
+                updateBuzzerVisibility();
+
             } else if (timerPhase === 'open') {
                 mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
                 const display = Math.ceil(mainTimerRemaining);
@@ -215,11 +265,10 @@
                 timerEl.style.color = '#ffd54f';
                 timerEl.textContent = `${display} SECOND${display === 1 ? '' : 'S'} LEFT`;
 
+                updateBuzzerVisibility();
+
                 if (mainTimerRemaining <= 0) {
-                    stopTimer();
-                    timerEl.textContent = "TIME'S UP!";
-                    buzzerBtn.style.display = 'none';
-                    setTimeout(tryAdvance, 2000);
+                    revealAnswerAndAdvance();
                 }
 
             } else if (timerPhase === 'answering') {
@@ -235,6 +284,7 @@
     function enterAnswerPhase() {
         timerPhase = 'answering';
         answerTimerRemaining = 10;
+        updateBuzzerVisibility();
 
         clearTimeout(answerAutoSubmitTimeout);
         answerAutoSubmitTimeout = setTimeout(() => {
@@ -248,12 +298,60 @@
         timerPhase = 'open';
         clearTimeout(answerAutoSubmitTimeout);
         iAmAnswering = false;
-        buzzerBtn.style.display = myBuzzUsed ? 'none' : 'block';
-        buzzerBtn.disabled = false;
+        answerSubmitted = false;
         answerInput.style.display = 'none';
         answerInput.value = '';
         answerInput.disabled = false;
+        // An early buzz hides the question; put it back for whoever is left.
+        questionEl.style.display = 'block';
         resultBanner.style.display = 'none';
+        updateBuzzerVisibility();
+    }
+
+    // Nobody got the question, so show the correct answer for 5 seconds and
+    // then move the match on. The server only hands the answer over once the
+    // question is genuinely over, so this can't be used to peek at it early.
+    async function revealAnswerAndAdvance() {
+        if (questionOver) return;
+        questionOver = true;
+
+        stopTimer();
+        const questionAtReveal = currentQuestionIndex;
+
+        updateBuzzerVisibility();
+        answerInput.style.display = 'none';
+        questionEl.style.display = 'block';
+
+        timerEl.style.display = 'block';
+        timerEl.style.color = '#ff6b6b';
+        timerEl.textContent = "TIME'S UP!";
+
+        if (!soundPlayedForResult) {
+            soundPlayedForResult = true;
+            incorrectSound.play();
+        }
+
+        let answer = null;
+        try {
+            const res = await fetch(`/api/match?code=${matchCode}&reveal=1`);
+            const data = await res.json();
+            if (data.ok) answer = data.answer;
+        } catch (e) {
+            console.error('could not fetch the answer:', e);
+        }
+
+        if (questionAtReveal !== currentQuestionIndex) return;
+
+        resultBanner.textContent = answer
+            ? `NOBODY GOT IT — the answer was "${answer}"`
+            : 'NOBODY GOT IT!';
+        resultBanner.style.display = 'block';
+
+        await delay(5000);
+
+        // Somebody else's client may already have moved the match on.
+        if (questionAtReveal !== currentQuestionIndex) return;
+        tryAdvance();
     }
 
     // ---- PERIODIC TIMER SYNC ----
@@ -281,15 +379,19 @@
         myBuzzUsed = false;
         answerSubmitted = false;
         iAmAnswering = false;
+        questionOver = false;
         soundPlayedForBuzz = false;
         soundPlayedForResult = false;
         timerPhase = 'getready';
-        buzzerBtn.style.display = 'none'; // hidden until get-ready ends
         buzzerBtn.disabled = false;
         answerInput.style.display = 'none';
         answerInput.value = '';
         answerInput.disabled = false;
+        // An early buzz on the previous question hid this.
+        questionEl.style.display = 'block';
+        timerEl.style.display = 'block';
         resultBanner.style.display = 'none';
+        updateBuzzerVisibility(); // hidden until get-ready ends
         stopTimer();
     }
 
@@ -299,48 +401,57 @@
         if (!data.ok) return;
 
         if (data.status === 'finished') {
+            // The realtime UPDATE that finishes the match can fire more than
+            // once; without this the whole sequence would restart and stack up
+            // return-to-catalogue timers.
+            if (matchFinishHandled) return;
+            matchFinishHandled = true;
+
             stopTimer();
+            questionOver = true;
             categoryEl.textContent = 'MATCH FINISHED!';
+            questionEl.style.display = 'block';
             questionEl.textContent = '';
             buzzerBtn.style.display = 'none';
             answerInput.style.display = 'none';
+            resultBanner.style.display = 'none';
+            timerEl.style.display = 'block';
+            timerEl.style.color = '#ffd54f';
             timerEl.textContent = '';
 
             await delay(2000);
 
-            if(data.tyingTeams.length !== 0) {
+            const tyingTeams = data.tyingTeams || [];
+
+            if (tyingTeams.length > 1) {
                 questionEl.textContent = `After everything, there's still a tie for first!!`;
                 await delay(2000);
                 questionEl.textContent = `The tying teams for first are... `;
                 await delay(2000);
-                questionEl.textContent = `TEAMS ${() => {
-                    let result = '';
-                    for (let i = 0; i < tyingTeams.length; i ++) {
-                        result += `${(i === tyingTeams.length - 1) ? 'and ' + tyingTeams[i] + '!' : tyingTeams[i] + ' '}`; // "1 " + "5 "...
-                    }
-                    return result;
-                }}!!!`;
-            } else {
-               questionEl.textContent = `The winning team is...`;   
+                questionEl.textContent = `TEAMS ${formatTeamList(tyingTeams)}!!!`;
+            } else if (data.winningTeam !== null && data.winningTeam !== undefined) {
+                questionEl.textContent = `The winning team is...`;
                 await delay(2000);
                 questionEl.textContent = `TEAM ${data.winningTeam}!!!`;
+            } else {
+                questionEl.textContent = `Nobody scored a single point!`;
             }
 
             await delay(5000);
 
-            let timeLeft = 11;
+            let timeLeft = 10;
+            timerEl.textContent = `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
 
-            newTimeInterval = setInterval(() => {
-                timeLeft --;
-                timerEl.textContent `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
+            const returnInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
 
-                if (timeLeft === 0) {
+                if (timeLeft <= 0) {
                     // TO-DO: delete match server side at this exact interval
-                    clearInterval(newTimeInterval);
+                    clearInterval(returnInterval);
                     window.location.href = 'deckCatalogue.html';
-                    return;
                 }
-            }, 1000)
+            }, 1000);
             return;
         }
 
@@ -349,7 +460,7 @@
             resetQuestionUI();
 
             readTimeTotal = data.question?.readTime ?? 3;
-            mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType);
+            mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType, data.timeLimitSeconds);
             mainTimerRemaining = mainTimerTotal;
             questionStartedAt = new Date(data.questionStartedAt).getTime();
 
@@ -400,16 +511,31 @@
         // commit for the user's own buzz INSERT, see "no active buzz,"
         // and hide the answer input mid-typing.
         if (iAmAnswering) return;
+        if (questionOver) return;
 
-        const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${currentQuestionIndex}`);
+        const questionAtRequest = currentQuestionIndex;
+        const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${questionAtRequest}`);
         const data = await res.json();
         if (!data.ok) return;
+
+        // FIX: the match can advance while this request is in flight. Applying
+        // the previous question's buzzes to the new one is what used to mark
+        // the buzz as already used and hide the buzzer for a whole question.
+        if (questionAtRequest !== currentQuestionIndex || iAmAnswering || questionOver) return;
+
+        // Whether the local player still has their buzz is a fact about this
+        // question, so read it off the server every time rather than latching
+        // a flag that only a brand new question can ever clear.
+        myBuzzUsed = (data.buzzes || []).some((b) => b.user_id === myUserId);
 
         // --- Someone got it correct ---
         if (data.answeredCorrectly) {
             const correctBuzz = data.buzzes.find((b) => b.result === 'correct');
-            buzzerBtn.style.display = 'none';
+            questionOver = true;
             answerInput.style.display = 'none';
+            questionEl.style.display = 'block'; // an early buzz may have hidden it
+            timerEl.style.display = 'block';
+            updateBuzzerVisibility();
             resultBanner.textContent = `${correctBuzz.displayName} says "${correctBuzz.guess}" — CORRECT!`;
             resultBanner.style.display = 'block';
 
@@ -470,7 +596,7 @@
         }
 
         // --- No active buzz: check latest resolved ---
-        const resolvedBuzzes = data.buzzes.filter((b) => b.result !== null);
+        const resolvedBuzzes = (data.buzzes || []).filter((b) => b.result !== null);
         if (resolvedBuzzes.length > 0) {
             const latest = resolvedBuzzes[resolvedBuzzes.length - 1];
 
@@ -481,33 +607,49 @@
                 resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
                 resultBanner.style.display = 'block';
 
-                const myBuzz = data.buzzes.find((b) => b.user_id === myUserId);
-                if (myBuzz) myBuzzUsed = true;
-
                 setTimeout(() => {
                     soundPlayedForBuzz = false;
                     soundPlayedForResult = false;
+
+                    if (questionAtRequest !== currentQuestionIndex || questionOver) return;
+
                     if (timerPhase === 'answering') {
                         resumeOpenPhase();
+                    } else {
+                        // We never saw this buzz go live (the insert and the
+                        // grade landed together), so the phase was never moved
+                        // to 'answering' — clean up by hand instead of leaving
+                        // the buzzer hidden for the rest of the question.
+                        resultBanner.style.display = 'none';
+                        questionEl.style.display = 'block';
+                        updateBuzzerVisibility();
                     }
+
+                    // Everyone has now had their go and nobody got it, so
+                    // there is no point running the clock down.
+                    if (everybodyHasBuzzed(data.buzzes)) revealAnswerAndAdvance();
                 }, 2000);
                 return;
             }
         }
 
-        // --- Nobody buzzed yet, or we already processed the last incorrect ---
-        const myPreviousBuzz = (data.buzzes || []).find((b) => b.user_id === myUserId);
-        if (myPreviousBuzz) myBuzzUsed = true;
+        // --- Everyone has buzzed and nobody got it ---
+        if (everybodyHasBuzzed(data.buzzes)) {
+            revealAnswerAndAdvance();
+            return;
+        }
 
-        buzzerBtn.style.display = myBuzzUsed ? 'none' : 'block';
+        // --- Nobody buzzed yet, or we already processed the last incorrect ---
         answerInput.style.display = 'none';
         resultBanner.style.display = 'none';
+        updateBuzzerVisibility();
     }
 
     // ---- SUBMITTING AN ANSWER ----
 
     async function submitAnswer() {
         if (answerSubmitted) return;
+        if (!iAmAnswering) return; // the input is only live for the person who buzzed
 
         const guess = answerInput.value.trim() || '(no answer)';
         answerInput.disabled = true;
@@ -547,6 +689,8 @@
         if (data.result === 'correct') {
             correctSound.play();
             iAmAnswering = false;
+            questionOver = true;
+            updateBuzzerVisibility();
             await delay(2000);
             tryAdvance();
         } else {
@@ -611,7 +755,7 @@
         if (data.ok) {
             myBuzzUsed = true;
             iAmAnswering = true; // FIX #3: guard against checkBuzzStatus overrides
-            buzzerBtn.style.display = 'none';
+            updateBuzzerVisibility();
             answerInput.style.display = 'block';
             answerInput.disabled = false;
             answerInput.placeholder = 'Type your answer...';
@@ -626,7 +770,7 @@
             enterAnswerPhase();
         } else if (data.error === 'already_buzzed') {
             myBuzzUsed = true;
-            buzzerBtn.style.display = 'none';
+            updateBuzzerVisibility();
             checkBuzzStatus();
         } else if (data.error === 'someone_answering') {
             // Someone else is currently answering — keep the buzzer

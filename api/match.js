@@ -25,6 +25,88 @@ function pickQuestionOrder(totalCards, questionCount) {
     return indices.slice(0, count);
 }
 
+// Mirrors getMainTimerForAnswerType() in match.html. The host picks the answer
+// window in the lobby (settings.timeLimitSeconds, 30 by default) and Japanese
+// answers get twice that. Keep the two in step: if this is longer than what the
+// client actually counts down, the answer reveal never unlocks.
+function getMainTimerForAnswerType(answerType, baseSeconds) {
+    const japaneseTypes = ['JP', 'ひら', 'カナ', '漢'];
+    const base = Number(baseSeconds) > 0 ? Number(baseSeconds) : 30;
+    return japaneseTypes.includes(answerType) ? base * 2 : base;
+}
+
+// Adds every player's score onto their team's total and works out who is on
+// top. Teams come off the players themselves rather than settings.numTeams,
+// because when teams are disabled every player is their own team and numTeams
+// is null.
+function computeStandings(players) {
+    const teamScores = {};
+
+    (players || []).forEach((p) => {
+        if (p.team_number === null || p.team_number === undefined) return;
+        teamScores[p.team_number] = (teamScores[p.team_number] || 0) + (p.score || 0);
+    });
+
+    let highestScore = null;
+    let leaders = [];
+
+    Object.keys(teamScores).forEach((key) => {
+        const teamNumber = Number(key);
+        const score = teamScores[key];
+
+        if (highestScore === null || score > highestScore) {
+            highestScore = score;
+            leaders = [teamNumber];
+        } else if (score === highestScore) {
+            leaders.push(teamNumber);
+        }
+    });
+
+    leaders.sort((a, b) => a - b);
+
+    return {
+        teamScores,
+        highestScore: highestScore === null ? 0 : highestScore,
+        // Exactly one leader means a winner; more than one means a tie for first.
+        winningTeam: leaders.length === 1 ? leaders[0] : null,
+        tyingTeams: leaders.length > 1 ? leaders : [],
+    };
+}
+
+// A question is over once someone got it right, once every player in the match
+// has had their buzz graded, or once the whole read + answer window has elapsed
+// (plus the time the client timer spends paused on each buzz attempt). Only
+// then is it safe to hand the answer out to clients.
+async function questionIsOver(match, question) {
+    const { data: buzzes } = await supabase
+        .from('buzzes')
+        .select('result')
+        .eq('match_id', match.id)
+        .eq('question_index', match.current_question_index);
+
+    const allBuzzes = buzzes || [];
+
+    if (allBuzzes.some((b) => b.result === 'correct')) return true;
+    if (allBuzzes.some((b) => b.result === null)) return false;
+
+    const { count: playerCount } = await supabase
+        .from('match_players')
+        .select('id', { count: 'exact', head: true })
+        .eq('match_id', match.id);
+
+    if (playerCount && allBuzzes.length >= playerCount) return true;
+
+    // The client timer only counts down while the question is open — it stops
+    // for every buzz — so real elapsed time is always at least read + answer
+    // window by the time a client sees TIME'S UP. That makes this a floor,
+    // never an early reveal.
+    const readTime = question?.readTime ?? match.settings.earlyThresholdSeconds ?? 3;
+    const answerWindow = getMainTimerForAnswerType(question?.answerType, match.settings.timeLimitSeconds);
+    const elapsed = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
+
+    return elapsed >= readTime + answerWindow;
+}
+
 function assignTeams(players, settings) {
     if (!settings.teamsEnabled) {
         return players.map((p, i) => ({ id: p.id, team_number: i + 1 }));
@@ -201,50 +283,18 @@ module.exports = async (req, res) => {
                         return;
                     }
 
-                    
-                    let teamScores = new Array(match.settings.numTeams);
-
-                    for (let i = 0; i < current_players.length; i++) {
-                        teamScores[current_players[i].team_number - 1] += current_players[i].score; // updates our array of team scores.
-                    }
-
-                    let highestScore = -99999;
-                    let winningTeam = 0;
-                    let tyingTeams = [];
-
-                    // convoluted but works
-                    for (let i = 0; i < teamScores.length; i ++) {
-                        // Team Number: i + 1
-                        let teamNumber = i + 1;
-                        if (tyingTeams.length !== 0) {
-                            if (teamsScores[tyingTeams[0] - 1] < teamsScores[i]) // if the teams that are tied right now have a lower score than this team... 
-                            {
-                                tyingTeams = []; // set back to an empty array and update!
-                                winningTeam = teamNumber;
-                                highestScore = teamScores[i];
-                            }
-                        } 
-                        if (teamsScores[i] > highestScore) {
-                            tyingTeams = [];
-                            winningTeam = teamNumber;
-                            highestScore = teamsScores[i];
-                        } else if (teamsScores[i] === highestScore) { // if the current winning team 
-                            // if the current winning team isn't in tying teams, push both them and this new taem
-                            if (tyingTeams.find(element => element === winningTeam) === undefined) {
-                                tyingTeams = [];
-                                tyingTeams.push(winningTeam, teamNumber);
-                            } else {
-                                // otherwise, simply push this team number.
-                                tyingTeams.push(teamNumber); 
-                            }
-                        }
-                    }
-
+                    const standings = computeStandings(players);
 
                     // sending back the winning team to the client
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ ok: true, status: 'finished', winningTeam, tyingTeams}));
+                    res.end(JSON.stringify({
+                        ok: true,
+                        status: 'finished',
+                        winningTeam: standings.winningTeam,
+                        tyingTeams: standings.tyingTeams,
+                        teamScores: standings.teamScores,
+                    }));
                     return;
                 }
 
@@ -276,7 +326,7 @@ module.exports = async (req, res) => {
         }
 
         if (req.method === 'GET') {
-            const { code } = req.query;
+            const { code, reveal } = req.query;
             if (!code) {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
@@ -298,6 +348,7 @@ module.exports = async (req, res) => {
             }
 
             let question = null;
+            let card = null;
 
             if (match.question_order) {
                 const { data: deck, error: deckError } = await supabase
@@ -308,7 +359,7 @@ module.exports = async (req, res) => {
 
                 if (!deckError && deck) {
                     const cardIndex = match.question_order[match.current_question_index];
-                    const card = cardIndex !== undefined ? deck.cards[cardIndex] : null;
+                    card = cardIndex !== undefined ? deck.cards[cardIndex] : null;
 
                     if (card) {
                         question = {
@@ -324,6 +375,26 @@ module.exports = async (req, res) => {
                 }
             }
 
+            // The answer is only ever sent once the question is genuinely over,
+            // so a player can't read it out of the network tab mid-question.
+            let answer = null;
+            if (reveal && card && (match.status === 'finished' || await questionIsOver(match, question))) {
+                answer = (card.answers || [])[0] ?? null;
+            }
+
+            let winningTeam = null;
+            let tyingTeams = [];
+            if (match.status === 'finished') {
+                const { data: players } = await supabase
+                    .from('match_players')
+                    .select('team_number, score')
+                    .eq('match_id', match.id);
+
+                const standings = computeStandings(players);
+                winningTeam = standings.winningTeam;
+                tyingTeams = standings.tyingTeams;
+            }
+
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({
@@ -334,6 +405,9 @@ module.exports = async (req, res) => {
                 timeLimitSeconds: match.settings.timeLimitSeconds,
                 questionStartedAt: match.question_started_at,
                 question,
+                answer,
+                winningTeam,
+                tyingTeams,
             }));
             return;
         }
