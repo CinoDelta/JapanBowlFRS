@@ -285,6 +285,32 @@ module.exports = async (req, res) => {
 
                     const standings = computeStandings(players);
 
+                    const { data, error } = await supabase
+                        .from('matches')
+                        .delete()
+                        .eq('id', match.id)
+                        .select();
+
+                    if (error) {
+                        res.statusCode = 500;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({ error: 'internal_server_error' }));
+                        return;
+                    }
+
+                    const {dataTwo, errorTwo} = await supabase
+                        .from('match_players')
+                        .delete()
+                        .eq('match_id', match.id)
+                        .select();
+                    
+                    if (errorTwo) {
+                        res.statusCode = 500;
+                        res.setHeader('Content-Type', 'application/json');
+                        res.end(JSON.stringify({ errorTwo: 'internal_server_error' }));
+                        return;
+                    }
+
                     // sending back the winning team to the client
                     res.statusCode = 200;
                     res.setHeader('Content-Type', 'application/json');
@@ -411,6 +437,8 @@ module.exports = async (req, res) => {
             }));
             return;
         }
+
+
 
         res.statusCode = 405;
         res.setHeader('Content-Type', 'application/json');

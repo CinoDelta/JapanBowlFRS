@@ -81,6 +81,13 @@
     //const earlySound = new Audio('sounds/earlyJapanese.wav');
     //const incorrectSound = new Audio('sounds/incorrectJapanese.wav');
     const buzzerSound = new Audio('sounds/Buzzer.wav');
+    const getReadySound = new Audio('sounds/getReady.wav');
+    const beginSound = new Audio('sounds/beginSound.wav');
+
+    let soundBools = {
+        "getReady": false,
+        "begin": false
+    }
 
     const soundsVol = 0.7;
     let changeVolume = (sound) => {sound.volume = soundsVol};
@@ -218,6 +225,8 @@
         answerAutoSubmitTimeout = null;
     }
 
+
+
     function startTimer() {
         stopTimer();
 
@@ -229,6 +238,10 @@
             // seconds in the future to let everyone load in. Show a
             // countdown so players know it's about to begin.
             if (elapsed < 0) {
+                if (soundBools.getReady === false) {
+                    soundBools.getReady = true;
+                    getReadySound.play();
+                }
                 timerPhase = 'getready';
                 timerEl.style.color = '#ffd54f';
                 timerEl.textContent = `GET READY! ${Math.ceil(-elapsed)}`;
@@ -242,6 +255,10 @@
             }
 
             if (timerPhase === 'reading') {
+                if (soundBools.begin === false) {
+                    soundBools.begin = true;
+                    beginSound.play();
+                }
                 const readRemaining = Math.max(0, readTimeTotal - elapsed);
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
@@ -259,6 +276,7 @@
                 updateBuzzerVisibility();
 
             } else if (timerPhase === 'open') {
+                soundBools.beginSound = false;
                 mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
                 const display = Math.ceil(mainTimerRemaining);
 
@@ -729,7 +747,7 @@
 
     // ---- BUZZER CLICK ----
 
-    buzzerBtn.addEventListener('click', async () => {
+    async function buzzNowNowNow() {
         if (myBuzzUsed) return;
 
         const { data: { session } } = await supabaseClient.auth.getSession();
@@ -781,6 +799,17 @@
         } else {
             buzzerBtn.disabled = false;
             console.error('buzz failed:', data.error);
+        }
+    }
+
+    buzzerBtn.addEventListener('click', buzzNowNowNow);
+
+    // ---- SPACE TO BUZZ ----
+
+    window.addEventListener('keydown', (event) => {
+        if (event.code === 'Space') {
+            event.preventDefault();
+            buzzNowNowNow();
         }
     });
 

@@ -161,18 +161,11 @@ h3 {
 }
 
 .info-box {
-  position: relative;
   background: var(--infoBackground);
   border-radius: 16px;
   box-shadow: 0 6px 18px rgba(40, 3, 25, .7);
   border: 0.3rem solid rgba(40, 3, 25, 0.7);
   background-clip: padding-box;
-}
-
-.info-box p {
-    padding-left: 1rem;
-    padding-bottom: 1rem;
-    padding-right: .5rem;
 }
 
 
@@ -664,6 +657,11 @@ form {
     color: var(--darkerCherry);
     font-style: italic;
     font-size: auto;
+}
+
+.info-box p {
+    padding-left: .5rem;
+    text-align: left;
 }
 
 
