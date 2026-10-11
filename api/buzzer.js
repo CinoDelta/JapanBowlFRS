@@ -15,6 +15,65 @@ async function authenticate(req) {
     return user;
 }
 
+const normalize = (s) => s.trim().toLowerCase();
+
+function getLevenshteinDistance(str1, str2) {
+    const track = Array(str2.length + 1).fill(null).map(() =>
+        Array(str1.length + 1).fill(null));
+    for (let i = 0; i <= str1.length; i += 1) track[0][i] = i;
+    for (let j = 0; j <= str2.length; j += 1) track[j][0] = j;
+    for (let j = 1; j <= str2.length; j += 1) {
+        for (let i = 1; i <= str1.length; i += 1) {
+            const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+            track[j][i] = Math.min(
+                track[j][i - 1] + 1,
+                track[j - 1][i] + 1,
+                track[j - 1][i - 1] + indicator,
+            );
+        }
+    }
+    return track[str2.length][str1.length];
+}
+
+function checkAnswerFuzzy(userInput, card, tolerance) {
+    for (const validAnswer of card.answers) {
+        const distance = getLevenshteinDistance(
+            normalize(userInput),
+            normalize(validAnswer)
+        );
+        if (distance <= tolerance) return true;
+    }
+    return false;
+}
+
+// Works for toss-up cards and bonusQuestion objects alike, since both have
+// "answers" and "answer-type".
+function isCorrectAnswer(guess, card) {
+    return card['answer-type'] !== 'EN'
+        ? (card.answers || []).some((a) => normalize(a) === normalize(guess))
+        : checkAnswerFuzzy(guess, card, 2);
+}
+
+const BONUS_POINTS = 10;
+const BONUS_ANSWER_SECONDS = 15;
+// Everyone sees "BONUS QUESTION FOR TEAM N!" for this long before the bonus starts.
+const BONUS_LEAD_SECONDS = 3;
+// Accept submissions this long after the deadline, to cover network lag.
+const BONUS_GRACE_SECONDS = 1;
+
+function getBonusReadTime(bonusCard, settings) {
+    return bonusCard.readTime ?? settings?.earlyThresholdSeconds ?? 3;
+}
+
+// Read time + answer time. Japanese answers get twice as long, same as toss-ups.
+function getBonusWindowSeconds(bonusCard, settings) {
+    const japaneseTypes = ['JP', 'ひら', 'カナ', '漢'];
+    const answerTime = japaneseTypes.includes(bonusCard['answer-type'])
+        ? BONUS_ANSWER_SECONDS * 2
+        : BONUS_ANSWER_SECONDS;
+    return getBonusReadTime(bonusCard, settings) + answerTime;
+}
+
 // POST  /api/buzzer -> { code }  buzz in for the current question
 // GET   /api/buzzer?code=XX&questionIndex=N -> active buzz + all resolved buzzes
 // PATCH /api/buzzer -> { code, questionIndex, guess }  submit + grade an answer
@@ -162,7 +221,7 @@ module.exports = async (req, res) => {
 
             const { data: match, error: matchError } = await supabase
                 .from('matches')
-                .select('id')
+                .select('id, deck_id, question_order, settings')
                 .eq('code', code.toUpperCase())
                 .single();
 
@@ -176,7 +235,7 @@ module.exports = async (req, res) => {
             // Get ALL buzzes for this question, ordered by time.
             const { data: buzzes, error: buzzError } = await supabase
                 .from('buzzes')
-                .select('user_id, team_number, guess, result, is_early, created_at')
+                .select('user_id, team_number, guess, result, is_early, created_at, bonus_question, bonus_started_at, bonus_ends_at, bonus_guess, bonus_result, bonus_user_id')
                 .eq('match_id', match.id)
                 .eq('question_index', parseInt(questionIndex, 10))
                 .order('created_at', { ascending: true });
@@ -194,7 +253,7 @@ module.exports = async (req, res) => {
             const answeredCorrectly = (buzzes || []).some((b) => b.result === 'correct');
 
             // Look up display names for all buzzers in one query.
-            const userIds = [...new Set((buzzes || []).map((b) => b.user_id))];
+            const userIds = [...new Set((buzzes || []).flatMap((b) => [b.user_id, b.bonus_user_id]).filter(Boolean))];
             let nameMap = {};
             if (userIds.length > 0) {
                 const { data: players } = await supabase
@@ -212,6 +271,37 @@ module.exports = async (req, res) => {
                 displayName: nameMap[b.user_id] || null,
             }));
 
+            let bonus = null;
+            const bonusBuzz = (buzzes || []).find((b) => b.result === 'correct' && b.bonus_question);
+            if (bonusBuzz) {
+                const { data: deck } = await supabase
+                    .from('decks')
+                    .select('cards')
+                    .eq('id', match.deck_id)
+                    .single();
+
+                const bonusCard = deck?.cards[match.question_order[parseInt(questionIndex, 10)]]?.bonusQuestion;
+                if (bonusCard) {
+                    const over = bonusBuzz.bonus_result !== null
+                        || Date.now() >= new Date(bonusBuzz.bonus_ends_at).getTime();
+
+                    bonus = {
+                        teamNumber: bonusBuzz.team_number,
+                        question: bonusCard.question,
+                        answerType: bonusCard['answer-type'],
+                        readTime: getBonusReadTime(bonusCard, match.settings),
+                        startedAt: bonusBuzz.bonus_started_at,
+                        endsAt: bonusBuzz.bonus_ends_at,
+                        result: bonusBuzz.bonus_result,
+                        guess: bonusBuzz.bonus_guess,
+                        displayName: nameMap[bonusBuzz.bonus_user_id] || null,
+                        points: BONUS_POINTS,
+                        over,
+                        // Same rule as toss-ups: the answer only leaves the server once it's over.
+                        answer: over ? ((bonusCard.answers || [])[0] ?? null) : null,
+                    };
+                }
+            }
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({
@@ -219,6 +309,7 @@ module.exports = async (req, res) => {
                 buzzes: enriched,
                 activeBuzz: activeBuzz ? { ...activeBuzz, displayName: nameMap[activeBuzz.user_id] || null } : null,
                 answeredCorrectly,
+                bonus,
             }));
             return;
         }
@@ -232,7 +323,7 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const { code, questionIndex, guess } = req.body;
+            const { code, questionIndex, guess, bonus} = req.body;
             if (!code || questionIndex === undefined || typeof guess !== 'string') {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
@@ -242,7 +333,7 @@ module.exports = async (req, res) => {
 
             const { data: match, error: matchError } = await supabase
                 .from('matches')
-                .select('id, deck_id, question_order')
+                .select('id, deck_id, question_order, settings')
                 .eq('code', code.toUpperCase())
                 .single();
 
@@ -250,6 +341,101 @@ module.exports = async (req, res) => {
                 res.statusCode = 404;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'match_not_found' }));
+                return;
+            }
+
+            // ---- BONUS ANSWER ----
+            if (bonus === true) {
+                // The bonus hangs off the correct toss-up buzz for this question.
+                const { data: tossUp } = await supabase
+                    .from('buzzes')
+                    .select('id, team_number, bonus_ends_at')
+                    .eq('match_id', match.id)
+                    .eq('question_index', questionIndex)
+                    .eq('result', 'correct')
+                    .eq('bonus_question', true)
+                    .is('bonus_result', null)
+                    .maybeSingle();
+
+                if (!tossUp) {
+                    res.statusCode = 400;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'no_active_bonus' }));
+                    return;
+                }
+
+                const { data: player } = await supabase
+                    .from('match_players')
+                    .select('id, score, team_number')
+                    .eq('match_id', match.id)
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (!player || player.team_number !== tossUp.team_number) {
+                    res.statusCode = 403;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'not_your_bonus' }));
+                    return;
+                }
+
+                if (Date.now() > new Date(tossUp.bonus_ends_at).getTime() + BONUS_GRACE_SECONDS * 1000) {
+                    res.statusCode = 400;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'bonus_time_up' }));
+                    return;
+                }
+
+                const { data: deck } = await supabase
+                    .from('decks')
+                    .select('cards')
+                    .eq('id', match.deck_id)
+                    .single();
+
+                const bonusCard = deck?.cards[match.question_order[questionIndex]]?.bonusQuestion;
+                if (!bonusCard) {
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'internal_server_error' }));
+                    return;
+                }
+
+                const bonusResult = isCorrectAnswer(guess, bonusCard) ? 'correct' : 'incorrect';
+
+                // Only the first teammate to submit counts. Filtering on
+                // bonus_result IS NULL means a second submission updates nothing.
+                const { data: claimed, error: claimError } = await supabase
+                    .from('buzzes')
+                    .update({ bonus_result: bonusResult, bonus_guess: guess, bonus_user_id: user.id })
+                    .eq('id', tossUp.id)
+                    .is('bonus_result', null)
+                    .select('id');
+
+                if (claimError) {
+                    console.error('bonus grade error:', claimError);
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'internal_server_error' }));
+                    return;
+                }
+
+                if (!claimed || claimed.length === 0) {
+                    res.statusCode = 409;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'bonus_already_answered' }));
+                    return;
+                }
+
+                const pointChange = bonusResult === 'correct' ? BONUS_POINTS : 0;
+                if (pointChange !== 0) {
+                    await supabase
+                        .from('match_players')
+                        .update({ score: player.score + pointChange })
+                        .eq('id', player.id);
+                }
+
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ ok: true, result: bonusResult, pointChange }));
                 return;
             }
 
@@ -286,41 +472,7 @@ module.exports = async (req, res) => {
             const cardIndex = match.question_order[questionIndex];
             const card = deck.cards[cardIndex];
 
-            const normalize = (s) => s.trim().toLowerCase();
-
-            function getLevenshteinDistance(str1, str2) {
-                const track = Array(str2.length + 1).fill(null).map(() =>
-                    Array(str1.length + 1).fill(null));
-                for (let i = 0; i <= str1.length; i += 1) track[0][i] = i;
-                for (let j = 0; j <= str2.length; j += 1) track[j][0] = j;
-                for (let j = 1; j <= str2.length; j += 1) {
-                    for (let i = 1; i <= str1.length; i += 1) {
-                        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-                        track[j][i] = Math.min(
-                            track[j][i - 1] + 1,
-                            track[j - 1][i] + 1,
-                            track[j - 1][i - 1] + indicator,
-                        );
-                    }
-                }
-                return track[str2.length][str1.length];
-            }
-
-            function checkAnswerFuzzy(userInput, card, tolerance) {
-                for (const validAnswer of card.answers) {
-                    const distance = getLevenshteinDistance(
-                        normalize(userInput),
-                        normalize(validAnswer)
-                    );
-                    if (distance <= tolerance) return true;
-                }
-                return false;
-            }
-
-            const isCorrect = card['answer-type'] !== 'EN'
-                ? (card.answers || []).some((a) => normalize(a) === normalize(guess))
-                : checkAnswerFuzzy(guess, card, 2);
-
+            const isCorrect = isCorrectAnswer(guess, card);
             const result = isCorrect ? 'correct' : 'incorrect';
 
             let pointChange = 0;
@@ -330,10 +482,25 @@ module.exports = async (req, res) => {
                 pointChange = -5;
             }
 
+            // A correct toss-up on a card with a bonusQuestion opens the bonus
+            // for the answering team. bonus_ends_at is the hard deadline that
+            // match.js and every client go by.
+            const hasBonus = isCorrect && !!card.bonusQuestion;
+            let bonusFields = {};
+            if (hasBonus) {
+                const startsAt = Date.now() + BONUS_LEAD_SECONDS * 1000;
+                const endsAt = startsAt + getBonusWindowSeconds(card.bonusQuestion, match.settings) * 1000;
+                bonusFields = {
+                    bonus_question: true,
+                    bonus_started_at: new Date(startsAt).toISOString(),
+                    bonus_ends_at: new Date(endsAt).toISOString(),
+                };
+            }
+
             // Update THIS specific buzz row by its id.
             const { error: updateBuzzError } = await supabase
                 .from('buzzes')
-                .update({ result, guess })
+                .update({ result, guess, ...bonusFields })
                 .eq('id', buzz.id);
 
             if (updateBuzzError) {
@@ -360,25 +527,10 @@ module.exports = async (req, res) => {
                 }
             }
 
-            if (result === 'correct' && card.hasOwnProperty('bonusQuestion')) {
-                console.log('Bonus question available:', card.bonusQuestion);
-
-                const { error : updateError } = await supabase
-                    .from('buzzes')
-                    .update({ bonus_question: true })
-                    .eq('id', buzz.id);
-
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: card.bonusQuestion, teamNumber: buzz.team_number }));
-                return;
-            } else {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ ok: true, result, pointChange}));
-                return;
-            }
-
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: hasBonus }));
+            return;
         }
 
         res.statusCode = 405;

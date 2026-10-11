@@ -140,6 +140,17 @@
     // answer input out from under the user mid-typing.
     let iAmAnswering = false;
 
+
+    // ---- BONUS STATE ----
+    // null -> 'reading' -> 'open' -> 'timeup' -> 'done!'
+    let bonusPhase = null;
+    let bonusOnMyTeam = false;
+    let bonusSubmitted = false;
+    let bonusStartedAt = 0;
+    let bonusEndsAt = 0;
+    let bonusReadTime = 0;
+    let myTeamNumber = null;
+
     // ---- HELPERS ----
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -215,6 +226,8 @@
         if (!data.ok) return;
         matchId = data.match.id;
         totalPlayerCount = data.players.length;
+        const me = data.players.find((p) => p.user_id === myUserId);
+        myTeamNumber = me ? me.team_number : null;
         renderTeams(data.players);
     }
 
@@ -384,13 +397,16 @@
         if (currentQuestionIndex === null) return;
         try {
             const res = await fetch(`/api/match?code=${matchCode}`);
+            if (res.status === 404 && !matchFinishHandled) {
+                window.location.href = 'index.html'; // the match is gone
+                return;
+            }
             const data = await res.json();
             if (data.ok && data.questionStartedAt) {
                 questionStartedAt = new Date(data.questionStartedAt).getTime();
             }
         } catch (e) {
-            console.error('timer sync failed:', e);
-            window.location.href = 'index.html'; // fallback to home page if the match is gone
+            console.error('timer sync failed:', e); // transient; try again in 15s
         }
     }, 15000);
 
@@ -403,6 +419,9 @@
         questionOver = false;
         soundPlayedForBuzz = false;
         soundPlayedForResult = false;
+        bonusPhase = null;
+        bonusOnMyTeam = false;
+        bonusSubmitted = false;
         timerPhase = 'getready';
         buzzerBtn.disabled = false;
         answerInput.style.display = 'none';
@@ -463,13 +482,21 @@
             let timeLeft = 10;
             timerEl.textContent = `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
 
-            const returnInterval = setInterval(() => {
+            const returnInterval = setInterval(async () => {
                 timeLeft--;
                 timerEl.textContent = `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
 
                 if (timeLeft <= 0) {
                     // TO-DO: delete match server side at this exact interval
                     clearInterval(returnInterval);
+                    const res = await fetch(`/api/matches/?code=${matchCode}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                        },
+                    });
+                    
                     window.location.href = 'deckCatalogue.html';
                 }
             }, 1000);
@@ -565,6 +592,14 @@
                 //correctSound.play();
             }
 
+            if (data.bonus) {
+                // Leave the toss-up result up for a moment, then show the bonus.
+                setTimeout(() => {
+                    if (questionAtRequest === currentQuestionIndex) renderBonus(data.bonus);
+                }, 2000);
+                return;
+            }
+
             setTimeout(tryAdvance, 2000);
             return;
         }
@@ -579,7 +614,8 @@
                 buzzerSound.play();
                 if (data.activeBuzz.is_early) {
                     // Ok so here the question shouldn't be visible
-                    delay(1200).then(() => earlySound.play());
+                    //delay(1200).then(() => earlySound.play());
+                    //whoops forget to comment
                 }
             }
 
@@ -716,12 +752,11 @@
 
             if (data.bonusQuestion) {
                 resultBanner.textContent = 'BONUS QUESTION!';
-                await delay(2000);
-                
+                await delay(1000);
+                checkBonusStatus(); // fetches the bonus and shows it
             } else {
                 tryAdvance();
             }
-            tryAdvance();
         } else {
             //incorrectSound.play();
             soundPlayedForBuzz = false;
@@ -754,6 +789,175 @@
         if (!data.ok) {
             console.log('advance rejected (normal if another client already advanced):', data.error);
         }
+    }
+
+        // ---- BONUS QUESTIONS ----
+
+    async function checkBonusStatus() {
+        if (currentQuestionIndex === null) return;
+
+        const questionAtRequest = currentQuestionIndex;
+        const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${questionAtRequest}`);
+        const data = await res.json();
+        if (!data.ok || questionAtRequest !== currentQuestionIndex) return;
+
+        if (data.bonus) renderBonus(data.bonus);
+    }
+
+    // Safe to call repeatedly: the first call sets up the screen, and later
+    // calls only matter once the bonus is over.
+    function renderBonus(bonus) {
+        if (bonusPhase === 'done') return;
+
+        if (bonusPhase === null) {
+            bonusPhase = 'reading';
+            bonusOnMyTeam = bonus.teamNumber === myTeamNumber;
+            bonusSubmitted = false;
+            bonusStartedAt = new Date(bonus.startedAt).getTime();
+            bonusEndsAt = new Date(bonus.endsAt).getTime();
+            bonusReadTime = bonus.readTime;
+
+            timerPhase = 'bonus';
+            questionOver = true;
+            updateBuzzerVisibility();
+
+            categoryEl.textContent = `BONUS QUESTION FOR TEAM ${bonus.teamNumber}!`;
+            questionEl.innerHTML = `BONUS:<br>${bonus.question}`;
+            questionEl.style.display = 'block';
+            if (bonus.answerType) {
+                answerTypeIcon.src = `images/Answer_Types/${bonus.answerType}.png`;
+                answerTypeIcon.style.display = 'block';
+            }
+            resultBanner.style.display = 'none';
+            timerEl.style.display = 'block';
+
+            answerInput.value = '';
+            answerInput.style.display = 'block';
+            answerInput.disabled = !bonusOnMyTeam;
+            answerInput.placeholder = bonusOnMyTeam
+                ? 'Answer the bonus with your team...'
+                : `Team ${bonus.teamNumber} is answering the bonus...`;
+            if (bonusOnMyTeam) answerInput.focus();
+
+            startBonusTimer();
+        }
+
+        if (bonus.over) finishBonus(bonus);
+    }
+
+    // Runs on the same timerInterval as the main timer, so stopTimer() clears it too.
+    function startBonusTimer() {
+        stopTimer();
+        timerInterval = setInterval(() => {
+            if (bonusPhase === 'timeup' || bonusPhase === 'done') return;
+            const now = Date.now();
+
+            if (now < bonusStartedAt) {
+                timerEl.style.color = '#ffd54f';
+                timerEl.textContent = `BONUS IN ${Math.ceil((bonusStartedAt - now) / 1000)}...`;
+                return;
+            }
+
+            if (now < bonusStartedAt + bonusReadTime * 1000) {
+                bonusPhase = 'reading';
+                timerEl.style.color = 'red';
+                timerEl.textContent = 'BONUS BEING READ OUT...';
+                return;
+            }
+
+            bonusPhase = 'open';
+            const remaining = Math.max(0, Math.ceil((bonusEndsAt - now) / 1000));
+            timerEl.style.color = '#ffd54f';
+            timerEl.textContent = `${remaining}s TO ANSWER THE BONUS`;
+
+            if (now >= bonusEndsAt) bonusTimeUp();
+        }, 250);
+    }
+
+    async function submitBonusAnswer() {
+        if (!bonusOnMyTeam || bonusSubmitted || bonusPhase === 'done') return;
+
+        const guess = answerInput.value.trim();
+        if (!guess) return;
+
+        bonusSubmitted = true;
+        answerInput.disabled = true;
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const res = await fetch('/api/buzzer', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ code: matchCode, questionIndex: currentQuestionIndex, guess, bonus: true }),
+        });
+
+        const data = await res.json();
+        // A teammate beating you to it is expected, not an error.
+        if (!data.ok && data.error !== 'bonus_already_answered') {
+            console.error('Could not submit bonus answer:', data.error);
+        }
+
+        checkBonusStatus();
+    }
+
+    async function bonusTimeUp() {
+        if (bonusPhase === 'timeup' || bonusPhase === 'done') return;
+        bonusPhase = 'timeup';
+        stopTimer();
+        const questionAtTimeUp = currentQuestionIndex;
+
+        timerEl.style.color = '#ff6b6b';
+        timerEl.textContent = "TIME'S UP!";
+
+        // Whatever the team had typed still counts.
+        if (bonusOnMyTeam && !bonusSubmitted && answerInput.value.trim()) {
+            await submitBonusAnswer();
+        }
+        answerInput.disabled = true;
+
+        // Give the server's clock a moment to pass the deadline too, so it
+        // hands the answer over.
+        await delay(1500);
+
+        const res = await fetch(`/api/buzzer?code=${matchCode}&questionIndex=${questionAtTimeUp}`);
+        const data = await res.json();
+        if (questionAtTimeUp !== currentQuestionIndex) return;
+        finishBonus(data.bonus || {});
+    }
+
+    async function finishBonus(bonus) {
+        if (bonusPhase === 'done') return;
+        bonusPhase = 'done';
+        stopTimer();
+        const questionAtFinish = currentQuestionIndex;
+
+        answerInput.style.display = 'none';
+        timerEl.style.display = 'block';
+
+        if (bonus.result === 'correct') {
+            timerEl.style.color = '#ffd54f';
+            timerEl.textContent = 'BONUS CORRECT!';
+            resultBanner.textContent = `${bonus.displayName} says "${bonus.guess}" — CORRECT! +${bonus.points} for TEAM ${bonus.teamNumber}`;
+        } else if (bonus.result === 'incorrect') {
+            timerEl.style.color = '#ff6b6b';
+            timerEl.textContent = 'BONUS INCORRECT!';
+            resultBanner.textContent = `${bonus.displayName} says "${bonus.guess}" — INCORRECT! The answer was "${bonus.answer}"`;
+        } else {
+            timerEl.style.color = '#ff6b6b';
+            timerEl.textContent = "TIME'S UP!";
+            resultBanner.textContent = bonus.answer
+                ? `No bonus answer — it was "${bonus.answer}"`
+                : 'No bonus answer!';
+        }
+        resultBanner.style.display = 'block';
+
+        await delay(4000);
+
+        // Somebody else's client may already have moved the match on.
+        if (questionAtFinish !== currentQuestionIndex) return;
+        tryAdvance();
     }
 
     // ---- BUZZER CLICK ----
@@ -818,7 +1022,7 @@
     // ---- SPACE TO BUZZ ----
 
     window.addEventListener('keydown', (event) => {
-        if (event.code === 'Space') {
+        if (event.code === 'Space' && event.target !== answerInput) {
             event.preventDefault();
             buzzNowNowNow();
         }
@@ -828,7 +1032,8 @@
 
     answerInput.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter') return;
-        submitAnswer();
+        if (bonusPhase === 'reading' || bonusPhase === 'open') submitBonusAnswer();
+        else submitAnswer();
     });
 
     // ---- INIT ----
@@ -875,7 +1080,7 @@
             .channel(`match-buzzes-${matchId}`)
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'buzzes', filter: `match_id=eq.${matchId}` },
-                () => checkBuzzStatus()
+                () => (bonusPhase !== null ? checkBonusStatus() : checkBuzzStatus())
             )
             .subscribe();
     }

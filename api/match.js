@@ -226,12 +226,18 @@ module.exports = async (req, res) => {
 
                 const { data: buzzes } = await supabase
                     .from('buzzes')
-                    .select('result')
+                    .select('result, bonus_question, bonus_result, bonus_ends_at')
                     .eq('match_id', match.id)
                     .eq('question_index', match.current_question_index);
 
                 const answeredCorrectly = (buzzes || []).some((b) => b.result === 'correct');
-                const bonusQuestion = (buzzes || []).some((b) => b.bonus_question === true);
+                //selffff explanatorie
+                const bonusPending = (buzzes || []).some((b) =>
+                    b.result === 'correct'
+                    && b.bonus_question === true
+                    && b.bonus_result === null
+                    && Date.now() < new Date(b.bonus_ends_at).getTime()
+                );
                 const someoneAnswering = (buzzes || []).some((b) => b.result === null);
 
                 // We can't perfectly verify "time is up" server-side because
@@ -250,10 +256,10 @@ module.exports = async (req, res) => {
                     return;
                 }
 
-                if (!answeredCorrectly && someoneAnswering || bonusQuestion) {
+                if ((!answeredCorrectly && someoneAnswering) || bonusPending) {
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'someone_still_answering' }));
+                    res.end(JSON.stringify({ error: bonusPending ? 'bonus_in_progress' : 'someone_still_answering' }));
                     return;
                 }
 
