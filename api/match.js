@@ -335,7 +335,7 @@ module.exports = async (req, res) => {
                     .from('matches')
                     .update({
                         current_question_index: nextIndex,
-                        question_started_at: new Date().toISOString(),
+                        question_started_at: new Date(Date.now() + 3000).toISOString(),
                     })
                     .eq('id', match.id);
 
@@ -441,6 +441,7 @@ module.exports = async (req, res) => {
                 answer,
                 winningTeam,
                 tyingTeams,
+                serverNow: Date.now(),
             }));
             return;
         }

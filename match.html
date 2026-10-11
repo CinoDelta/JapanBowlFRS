@@ -85,12 +85,15 @@
     const beginSound = new Audio('sounds/beginSound.wav');
 
     let soundBools = {
-        "getReady": false,
-        "begin": false
+        "getReady": true,
+        "begin": true
     }
 
     const soundsVol = 0.7;
     let changeVolume = (sound) => {sound.volume = soundsVol};
+
+    let clockOffset = 0;
+
 
     // changeVolume(correctSound);
     // changeVolume(earlySound);
@@ -246,7 +249,7 @@
         stopTimer();
 
         timerInterval = setInterval(() => {
-            const elapsed = (Date.now() - questionStartedAt) / 1000;
+            const elapsed = (Date.now() + clockOffset - questionStartedAt) / 1000;
 
             // FIX #1: If elapsed is negative, the question hasn't actually
             // started yet — the server set question_started_at to a few
@@ -438,7 +441,10 @@
     async function loadQuestion() {
         const res = await fetch(`/api/match?code=${matchCode}`);
         const data = await res.json();
+
         if (!data.ok) return;
+
+        if (data.SeverNow) clockOffset = data.serverNow - Date.now() + clockOffset;
 
         if (data.status === 'finished') {
             // The realtime UPDATE that finishes the match can fire more than
@@ -850,7 +856,7 @@
         stopTimer();
         timerInterval = setInterval(() => {
             if (bonusPhase === 'timeup' || bonusPhase === 'done') return;
-            const now = Date.now();
+            const now = Date.now() + clockOffset;
 
             if (now < bonusStartedAt) {
                 timerEl.style.color = '#ffd54f';
@@ -1048,14 +1054,12 @@
         myDisplayName = session.user.user_metadata?.full_name ?? session.user.email;
 
     
-        matchStart.play();
+        //matchStart.play(); bring this back one day?
 
-        setTimeout(() => {
-            matchTheme.loop = true;
-            matchTheme.play().catch((err) => {
-                console.warn('Autoplay failed:', err);
-            });
-        }, 7420);
+        matchTheme.loop = true;
+        matchTheme.play().catch((err) => {
+            console.warn('Autoplay failed:', err);
+        });
 
         await loadPlayers();
         await loadQuestion();
