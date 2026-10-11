@@ -231,6 +231,7 @@ module.exports = async (req, res) => {
                     .eq('question_index', match.current_question_index);
 
                 const answeredCorrectly = (buzzes || []).some((b) => b.result === 'correct');
+                const bonusQuestion = (buzzes || []).some((b) => b.bonus_question === true);
                 const someoneAnswering = (buzzes || []).some((b) => b.result === null);
 
                 // We can't perfectly verify "time is up" server-side because
@@ -249,7 +250,7 @@ module.exports = async (req, res) => {
                     return;
                 }
 
-                if (!answeredCorrectly && someoneAnswering) {
+                if (!answeredCorrectly && someoneAnswering || bonusQuestion) {
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify({ error: 'someone_still_answering' }));
