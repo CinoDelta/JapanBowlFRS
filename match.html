@@ -97,6 +97,8 @@
     // changeVolume(incorrectSound);
     changeVolume(buzzerSound);
 
+    const matchTheme = new Audio('sounds/teamMatch.ogg');
+    const matchStart = new Audio('sounds/matchStart.ogg');
 
     // --- State ---
     let matchId = null;
@@ -830,6 +832,16 @@
         }
         myUserId = session.user.id;
         myDisplayName = session.user.user_metadata?.full_name ?? session.user.email;
+
+    
+        matchStart.play();
+
+        setTimeout(() => {
+            matchTheme.loop = true;
+            matchTheme.play().catch((err) => {
+                console.warn('Autoplay failed:', err);
+            });
+        }, matchStart.duration * 1000);
 
         await loadPlayers();
         await loadQuestion();
