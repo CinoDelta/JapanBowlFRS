@@ -360,10 +360,25 @@ module.exports = async (req, res) => {
                 }
             }
 
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, result, pointChange }));
-            return;
+            if (result === 'correct' && card.hasOwnProperty('bonusQuestion')) {
+                console.log('Bonus question available:', card.bonusQuestion);
+
+                const { error : updateError } = await supabase
+                    .from('buzzes')
+                    .update({ bonus_question: true })
+                    .eq('id', buzz.id);
+
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: card.bonusQuestion, teamNumber: buzz.team_number }));
+                return;
+            } else {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ ok: true, result, pointChange}));
+                return;
+            }
+
         }
 
         res.statusCode = 405;

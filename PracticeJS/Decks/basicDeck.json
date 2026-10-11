@@ -36,7 +36,14 @@
             "question": "What is the Japanese dish of vinegared rice with raw fish called?",
             "answers": ["すし"],
             "answer-type": "ひら",
-            "readTime": 5
+            "readTime": 5,
+            "bonusQuestion": {
+                "question": "What's the English translation of `すし`?",
+                "answers": ["Sushi"],
+                "answer-type": "EN",
+                "readTime": 3   
+            }
+
         }
     ]
 }

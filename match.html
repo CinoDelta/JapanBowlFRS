@@ -265,6 +265,7 @@
             }
         } catch (e) {
             console.error('timer sync failed:', e);
+            window.location.href = 'index.html'; // fallback to home page if the match is gone
         }
     }, 15000);
 
@@ -497,6 +498,14 @@
             correctSound.play();
             iAmAnswering = false;
             await delay(2000);
+
+            if (data.bonusQuestion) {
+                resultBanner.textContent = 'BONUS QUESTION!';
+                await delay(2000);
+                
+            } else {
+                tryAdvance();
+            }
             tryAdvance();
         } else {
             incorrectSound.play();
@@ -615,7 +624,7 @@
             matchTheme.play().catch((err) => {
                 console.warn('Autoplay failed:', err);
             });
-        }, matchStart.duration * 1000);
+        }, 7384);
 
         await loadPlayers();
         await loadQuestion();
