@@ -34,7 +34,7 @@ const deckSearch = document.getElementById('deckSearch');
 const deckCreatorName = document.getElementById('thisDeckCreator');
 const deckName = document.getElementById('thisDeckName');
 const deckCardCount = document.getElementById('thisDeckCardCount');
-const singlePracticebutton = document.getElementById('singlePracticeSelect');
+//const singlePracticebutton = document.getElementById('singlePracticeSelect');
 const hostMatchButton = document.getElementById('hostMatchButton');
 
 let clientSidedDecks = {}
@@ -122,16 +122,16 @@ function displayDeckInfo() {
 
     let targetDeck = clientSidedDecks.find((deck) => deck.id === currentDeckId);
     
-    singlePracticebutton.style.display = 'block';
+    //singlePracticebutton.style.display = 'block';
     hostMatchButton.style.display = 'block';
 
     deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
     deckName.innerHTML = `<i>Deck Name: </i>${targetDeck.name}`;
     deckCreatorName.innerHTML = `<i>Deck Creator: </i> <u>${targetDeck.uploaderName}</u> `
 
-    singlePracticebutton.onclick = () => {
-        window.location.href = `singlePractice.html?id=${currentDeckId}`
-    }
+   // singlePracticebutton.onclick = () => {
+    //    window.location.href = `singlePractice.html?id=${currentDeckId}`
+   // }
 
     hostMatchButton.onclick = async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
@@ -177,7 +177,7 @@ function displayDeckInfo() {
 let sakuraInterval = null;
 
 hostMatchButton.style.display = 'none';
-singlePracticebutton.style.display = 'none';
+//singlePracticebutton.style.display = 'none';
 
 sakuraInterval = setInterval(sakuraSwitch, 500);
 loadDecks();
