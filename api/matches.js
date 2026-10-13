@@ -233,7 +233,12 @@ module.exports = async (req, res) => {
                 res.end(JSON.stringify({ error: 'not_host' }));
                 return;
             }
- 
+
+            await 
+            supabase.from('match_players')
+            .delete()
+            .eq('match_id', match.id);
+            
             const { data, error } = await supabase
                 .from('matches')
                 .delete()

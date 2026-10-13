@@ -135,6 +135,8 @@
     let matchFinishHandled = false;
     let soundPlayedForBuzz = false;
     let soundPlayedForResult = false;
+    let leaveToken = null;
+    let staleBuzzCheck = null;
 
     // FIX #3: This flag is true from the moment the local user's
     // buzz POST succeeds until their answer is submitted/graded.
@@ -173,18 +175,14 @@
         return `${teams.slice(0, -1).join(', ')}, and ${teams[teams.length - 1]}`;
     }
 
-    // FIX: the buzzer used to be shown and hidden from a dozen different call
-    // sites, so a stale realtime callback or a phase change that skipped the
-    // get-ready -> reading transition could leave it hidden for a whole
-    // question — which is what stopped people early buzzing again after a
-    // wrong early buzz. Now every path funnels through here and the answer is
-    // derived from current state, so it can't get stuck.
-    function updateBuzzerVisibility() {
-        const canBuzz = !myBuzzUsed
+    function canBuzzNow() {
+        return !myBuzzUsed
             && !questionOver
             && !iAmAnswering
             && (timerPhase === 'reading' || timerPhase === 'open');
-
+    }
+    function updateBuzzerVisibility() {
+        const canBuzz = canBuzzNow();
         buzzerBtn.style.display = canBuzz ? 'block' : 'none';
         if (canBuzz) buzzerBtn.disabled = false;
     }
@@ -328,6 +326,11 @@
                 submitAnswer();
             }
         }, 10000);
+
+        clearTimeout(staleBuzzCheck);
+        staleBuzzCheck = setTimeout(() => {
+            if (timerPhase === 'answering' && !iAmAnswering) checkBuzzStatus();
+        }, 16000);
     }
 
     function resumeOpenPhase() {
@@ -387,7 +390,13 @@
 
         // Somebody else's client may already have moved the match on.
         if (questionAtReveal !== currentQuestionIndex) return;
-        tryAdvance();
+        
+        for (let attempt = 0; attempt < 10; attempt ++) {
+            if (questionAtReveal !== currentQuestionIndex) return;
+            const result = await tryAdvance();
+            if (!result || result.ok || result.error !== 'someone_still_answering') return;
+            await delay(3000);
+        }
     }
 
     // ---- PERIODIC TIMER SYNC ----
@@ -439,12 +448,13 @@
     }
 
     async function loadQuestion() {
+        const sentAt = Date.now();
         const res = await fetch(`/api/match?code=${matchCode}`);
         const data = await res.json();
 
         if (!data.ok) return;
 
-        if (data.SeverNow) clockOffset = data.serverNow - Date.now() + clockOffset;
+        if (data.serverNow) clockOffset = data.serverNow - (sentAt + Date.now()) / 2;
 
         if (data.status === 'finished') {
             // The realtime UPDATE that finishes the match can fire more than
@@ -495,14 +505,16 @@
                 if (timeLeft <= 0) {
                     // TO-DO: delete match server side at this exact interval
                     clearInterval(returnInterval);
-                    const res = await fetch(`/api/matches/?code=${matchCode}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session.access_token}`,
-                        },
-                    });
-
+                    const {data: { session }} = await supabaseClient.auth.getSession();
+                    if (session) {
+                        await fetch (`/api/matches/?code=${matchCode}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${session.access_token}`,
+                            },
+                        }).catch(() => {});
+                    }
                     window.location.href = 'deckCatalogue.html';
                 }
             }, 1000);
@@ -519,7 +531,7 @@
             questionStartedAt = new Date(data.questionStartedAt).getTime();
 
             // If loading mid-question (e.g. page refresh), figure out phase.
-            const elapsed = (Date.now() - questionStartedAt) / 1000;
+            const elapsed = (Date.now() + clockOffset - questionStartedAt) / 1000;
             if (elapsed < 0) {
                 timerPhase = 'getready';
             } else if (elapsed < readTimeTotal) {
@@ -737,7 +749,8 @@
             console.error('Could not submit answer:', data.error);
             resultBanner.textContent = 'Error submitting answer.';
             resultBanner.style.display = 'block';
-            iAmAnswering = false;
+            resumeOpenPhase();
+            checkBuzzStatus(); // re-check in case the server did accept it after all
             return;
         }
 
@@ -769,6 +782,7 @@
             soundPlayedForResult = false;
             await delay(2000);
             resumeOpenPhase(); // this also sets iAmAnswering = false
+            if (data.allWrong) revealAnswerAndAdvance(); // everyone has had their go and nobody got it
         }
     }
 
@@ -795,6 +809,8 @@
         if (!data.ok) {
             console.log('advance rejected (normal if another client already advanced):', data.error);
         }
+
+        return data;
     }
 
         // ---- BONUS QUESTIONS ----
@@ -969,7 +985,7 @@
     // ---- BUZZER CLICK ----
 
     async function buzzNowNowNow() {
-        if (myBuzzUsed) return;
+        if (!canBuzzNow()) return;
 
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
@@ -1050,6 +1066,11 @@
             window.location.href = 'login.html';
             return;
         }
+        leaveToken = session.access_token;
+
+        supabaseClient.auth.onAuthStateChange((_event, newSession) =>{
+            leaveToken = newSession?.access_token ?? null;
+        });
         myUserId = session.user.id;
         myDisplayName = session.user.user_metadata?.full_name ?? session.user.email;
 
@@ -1090,6 +1111,21 @@
     }
 
     init();
+
+    window.addEventListener('pagehide', (event) => {
+        if (event.persisted) return; // page is being cached, not unloaded
+        if(!leaveToken || matchFinishHandled) return;
+
+        fetch('api/join', {
+            method: 'DELETE',
+            keepalive: true,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${leaveToken}`,
+            },
+            body: JSON.stringify({ code: matchCode }),
+        });
+    });
   </script>
 
 </body>

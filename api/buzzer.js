@@ -15,6 +15,25 @@ async function authenticate(req) {
     return user;
 }
 
+const ANSWER_TIMEOUT_SECONDS = 15;
+
+async function expireStaleBuzzes(matchId, questionIndex) {
+    const cutoff = new Date(Date.now() - ANSWER_TIMEOUT_SECONDS * 1000).toISOString();
+    await supabase
+        .from('buzzes')
+        .update({ result: 'incorrect', guess: '(no answer)' })
+        .eq('match_id', matchId)
+        .eq('question_index', questionIndex)
+        .is('result', null)
+        .lt('created_at', cutoff);
+}
+
+function getMainTimerForAnswerType(answerType, baseSeconds) {
+    const japaneseTypes = ['JP', 'ひら', 'カナ', '漢'];
+    const base = Number(baseSeconds) > 0 ? Number(baseSeconds) : 30;
+    return japaneseTypes.includes(answerType) ? base * 2 : base;
+}
+
 const normalize = (s) => s.trim().toLowerCase();
 
 function getLevenshteinDistance(str1, str2) {
@@ -111,6 +130,8 @@ module.exports = async (req, res) => {
 
             // Check if someone is CURRENTLY answering (an unresolved buzz exists).
             // If so, nobody else can buzz until that person's answer is graded.
+
+            await expireStaleBuzzes(match.id, match.current_question_index);
             const { data: activeBuzz } = await supabase
                 .from('buzzes')
                 .select('id, user_id')
@@ -165,17 +186,41 @@ module.exports = async (req, res) => {
                 .single();
 
             let readTime = match.settings.earlyThresholdSeconds;
+            let card = null;
             if (deck) {
-                const cardIndex = match.question_order[match.current_question_index];
-                const card = deck.cards[cardIndex];
+                card = deck.cards[match.question_order[match.current_question_index]];
                 if (card?.readTime !== undefined) {
                     readTime = card.readTime;
                 }
             }
 
             const elapsedSeconds = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
-            const isEarly = elapsedSeconds < readTime;
 
+            // question_started_at is in the future during "GET READY".
+            if (elapsedSeconds < 0) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'question_not_started' }));
+                return;
+            }
+
+            // The client clock pauses for each buzz (about 10s to answer plus about 4s
+            // of result screens), so allow 15s per earlier buzz on top of the window.
+            const { count: priorBuzzes } = await supabase
+                .from('buzzes')
+                .select('id', { count: 'exact', head: true })
+                .eq('match_id', match.id)
+                .eq('question_index', match.current_question_index);
+
+            const answerWindow = getMainTimerForAnswerType(card?.['answer-type'], match.settings.timeLimitSeconds);
+            if (elapsedSeconds > readTime + answerWindow + (priorBuzzes || 0) * 15) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'time_up' }));
+                return;
+            }
+
+            const isEarly = elapsedSeconds < readTime;
             // The unique constraint (match_id, question_index, user_id)
             // prevents the same person buzzing twice on the same question.
             const { data: buzz, error: buzzError } = await supabase
@@ -192,9 +237,12 @@ module.exports = async (req, res) => {
 
             if (buzzError) {
                 if (buzzError.code === '23505') {
+                    const someoneElse = (buzzError.message || '').includes('buzzes_one_active_per_question');
                     res.statusCode = 409;
                     res.setHeader('Content-Type', 'application/json');
-                    res.end(JSON.stringify({ error: 'already_buzzed' }));
+                    res.end(JSON.stringify({ 
+                        error: someoneElse ? 'someone_answering' : 'already_buzzed' 
+                    }));
                     return;
                 }
                 console.error('buzz error:', buzzError);
@@ -232,6 +280,7 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            await expireStaleBuzzes(match.id, parseInt(questionIndex, 10));
             // Get ALL buzzes for this question, ordered by time.
             const { data: buzzes, error: buzzError } = await supabase
                 .from('buzzes')
@@ -435,7 +484,7 @@ module.exports = async (req, res) => {
 
                 res.statusCode = 200;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ ok: true, result: bonusResult, pointChange }));
+                res.end(JSON.stringify({ ok: true, result: bonusResult, pointChange, }));
                 return;
             }
 
@@ -503,6 +552,23 @@ module.exports = async (req, res) => {
                 .update({ result, guess, ...bonusFields })
                 .eq('id', buzz.id);
 
+            let allWrong = false;
+            if (!isCorrect) {
+              const { data: graded } = await supabase
+                    .from('buzzes')
+                    .select('result')
+                    .eq('match_id', match.id)
+                    .eq('question_index', questionIndex)
+                    .not('result', 'is', null);
+
+                const { count: playerCount } = await supabase
+                    .from('match_players')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('match_id', match.id);
+
+                allWrong = playerCount > 0 && (graded || []).length >= playerCount;
+            }
+
             if (updateBuzzError) {
                 console.error('grade update error:', updateBuzzError);
                 res.statusCode = 500;
@@ -529,7 +595,7 @@ module.exports = async (req, res) => {
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: hasBonus }));
+            res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: hasBonus, allWrong}));
             return;
         }
 

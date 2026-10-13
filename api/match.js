@@ -15,6 +15,19 @@ async function authenticate(req) {
     return user;
 }
 
+const ANSWER_TIMEOUT_SECONDS = 15;
+
+async function expireStaleBuzzes(matchId, questionIndex) {
+    const cutoff = new Date(Date.now() - ANSWER_TIMEOUT_SECONDS * 1000).toISOString();
+    await supabase
+        .from('buzzes')
+        .update({ result: 'incorrect', guess: '(no answer)' })
+        .eq('match_id', matchId)
+        .eq('question_index', questionIndex)
+        .is('result', null)
+        .lt('created_at', cutoff);
+}
+
 function pickQuestionOrder(totalCards, questionCount) {
     const indices = Array.from({ length: totalCards }, (_, i) => i);
     for (let i = indices.length - 1; i > 0; i--) {
@@ -78,6 +91,7 @@ function computeStandings(players) {
 // (plus the time the client timer spends paused on each buzz attempt). Only
 // then is it safe to hand the answer out to clients.
 async function questionIsOver(match, question) {
+    await expireStaleBuzzes(match.id, match.current_question_index);
     const { data: buzzes } = await supabase
         .from('buzzes')
         .select('result')
@@ -216,7 +230,9 @@ module.exports = async (req, res) => {
                 return;
             }
 
+
             if (match.status === 'in_progress') {
+                await expireStaleBuzzes(match.id, match.current_question_index);
                 // A question is resolved when:
                 // 1. Someone answered correctly, OR
                 // 2. The client says time is up (we verify server-side)
@@ -291,32 +307,6 @@ module.exports = async (req, res) => {
                     }
 
                     const standings = computeStandings(players);
-
-                    const { data, error } = await supabase
-                        .from('matches')
-                        .delete()
-                        .eq('id', match.id)
-                        .select();
-
-                    if (error) {
-                        res.statusCode = 500;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ error: 'internal_server_error' }));
-                        return;
-                    }
-
-                    const {dataTwo, errorTwo} = await supabase
-                        .from('match_players')
-                        .delete()
-                        .eq('match_id', match.id)
-                        .select();
-                    
-                    if (errorTwo) {
-                        res.statusCode = 500;
-                        res.setHeader('Content-Type', 'application/json');
-                        res.end(JSON.stringify({ errorTwo: 'internal_server_error' }));
-                        return;
-                    }
 
                     // sending back the winning team to the client
                     res.statusCode = 200;
