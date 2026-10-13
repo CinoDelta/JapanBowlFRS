@@ -36,6 +36,7 @@ const deckName = document.getElementById('thisDeckName');
 const deckCardCount = document.getElementById('thisDeckCardCount');
 //const singlePracticebutton = document.getElementById('singlePracticeSelect');
 const hostMatchButton = document.getElementById('hostMatchButton');
+const deleteDeckButton = document.getElementById('deleteDeckButton');
 
 let clientSidedDecks = {}
 let currentDeckId = 0;
@@ -124,6 +125,20 @@ function displayDeckInfo() {
     
     //singlePracticebutton.style.display = 'block';
     hostMatchButton.style.display = 'block';
+    const {data: { session }} = await supabaseClient.auth.getSession();
+
+    if (session) {
+        myUserId = session.user.id;
+        if (targetDeck.user_id === myUserId) {
+            deleteDeckButton.style.display = 'block';
+        } else {
+            deleteDeckButton.style.display = 'none';
+        }
+    } else {
+        deleteDeckButton.style.display = 'none';
+    }
+
+
 
     deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
     deckName.innerHTML = `<i>Deck Name: </i>${targetDeck.name}`;
@@ -170,6 +185,52 @@ function displayDeckInfo() {
         window.location.href =`hostLobby.html?code=${data.code}`;
     };
 
+    let currentlyConfirmingDeletion = false;
+    let deletionTimeout = null;
+
+    deleteDeckButton.onclick = async () => {
+        if (currentlyConfirmingDeletion) {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+
+            const res = await fetch('/api/decks', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ deckId: currentDeckId }),
+            });
+            currentlyConfirmingDeletion = false;
+
+            if (!res.ok) {
+                const data = await res.json();
+                alert('Failed to delete the deck: ' + (data.error || 'unknown error'));
+                deleteDeckButton.textContent = "Contact support: Failed to delete deck";
+                await delay(2000).then(() => {
+                    window.location.href = 'deckCatalogue.html';
+                });
+                return;
+            }
+
+            deleteDeckButton.textContent = "Deck Deleted!";
+            deleteDeckButton.disabled = true;
+
+            await delay(2000).then(() => {
+                window.location.href = 'deckCatalogue.html';
+            });
+        }
+
+        deleteDeckButton.textContent = "Click again in 3 seconds to confirm deletion!";
+
+        clearTimeout(deletionTimeout);
+        deletionTimeout = setTimeout(() => {
+            currentlyConfirmingDeletion = false;
+            deleteDeckButton.textContent = "Delete Deck ⚠️";
+        }, 3000);
+
+
+    };
+
 
 }
 
@@ -177,6 +238,7 @@ function displayDeckInfo() {
 let sakuraInterval = null;
 
 hostMatchButton.style.display = 'none';
+deleteDeckButton.style.display = 'none';
 //singlePracticebutton.style.display = 'none';
 
 sakuraInterval = setInterval(sakuraSwitch, 500);

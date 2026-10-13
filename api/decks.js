@@ -77,7 +77,7 @@ module.exports = async (req, res) => {
             if (id) {
                 const { data, error } = await supabase
                     .from('decks') // from the table, decks
-                    .select('id, name, cards') // i only need these 3 specifc columns (seperated in csv format, remember!)
+                    .select('id, name, cards, user_id') // i only need these 3 specifc columns (seperated in csv format, remember!)
                     .eq('id', id) // does the id match the id that came as part of our query?
                     .single(); // only one please
 
@@ -96,7 +96,7 @@ module.exports = async (req, res) => {
 
             const {data, error} = await supabase
                 .from('decks')
-                .select('id, name, cards, uploader_name')
+                .select('id, name, cards, uploader_name, user_id')
                 .order('created_at', {ascending: false});
 
             if (error) {
@@ -117,6 +117,49 @@ module.exports = async (req, res) => {
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ok: true, decks}));
+            return;
+        } else if (req.method === "DELETE") {
+            const user = await authenticate(req);
+            if (!user) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
+                return;
+            }
+
+            const { deckId } = req.query;
+
+            if (!deckId) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'missing_deckId' }));
+                return;
+            }
+
+            const { data: deck, error: deckError } = await supabase
+                .from('decks')
+                .select('id, user_id')
+                .eq('id', deckId)
+                .single()
+                .delete();
+
+            if (deckError || !deck) {
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'deck_not_found' }));
+                return;
+            }
+
+            if (deck.user_id !== user.id) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_owner' }));
+                return;
+            }
+
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true }));
             return;
         }
 
