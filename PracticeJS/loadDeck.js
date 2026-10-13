@@ -115,7 +115,7 @@ function satisfyingEllipsisChange() {
     
 }
 
-function displayDeckInfo() {
+async function displayDeckInfo() {
     let selectedIndex = container.selectedIndex;
     let selectedOption = container.options[selectedIndex];
 
