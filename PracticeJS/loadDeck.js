@@ -41,6 +41,8 @@ const deleteDeckButton = document.getElementById('deleteDeckButton');
 let clientSidedDecks = {}
 let currentDeckId = 0;
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function loadDecks() {
     console.log("fetching");
     const res = await fetch('/api/decks');
@@ -129,7 +131,7 @@ async function displayDeckInfo() {
 
     if (session) {
         myUserId = session.user.id;
-        if (targetDeck.user_id === myUserId) {
+        if (targetDeck.userId === myUserId) {
             deleteDeckButton.style.display = 'block';
         } else {
             deleteDeckButton.style.display = 'none';
@@ -155,6 +157,7 @@ async function displayDeckInfo() {
             delay(2000).then(() => {
                 hostMatchButton.textContent = "Host Team Match!";
             });
+            return;
         }
 
         hostMatchButton.disabled = true;
@@ -192,13 +195,12 @@ async function displayDeckInfo() {
         if (currentlyConfirmingDeletion) {
             const { data: { session } } = await supabaseClient.auth.getSession();
 
-            const res = await fetch('/api/decks', {
+            const res = await fetch(`/api/decks?deckId=${currentDeckId}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`
                 },
-                body: JSON.stringify({ deckId: currentDeckId }),
             });
             currentlyConfirmingDeletion = false;
 
@@ -218,9 +220,13 @@ async function displayDeckInfo() {
             await delay(2000).then(() => {
                 window.location.href = 'deckCatalogue.html';
             });
+
+            return;
         }
 
         deleteDeckButton.textContent = "Click again in 3 seconds to confirm deletion!";
+
+        currentlyConfirmingDeletion = true;
 
         clearTimeout(deletionTimeout);
         deletionTimeout = setTimeout(() => {

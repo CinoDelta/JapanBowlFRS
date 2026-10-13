@@ -5,6 +5,16 @@ const supabase = createClient(
     process.env.JFRS_SUPABASE_SECRET_KEY
 );
 
+async function authenticate(req) {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace('Bearer ', '');
+    if (!token) return null;
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return null;
+    return user;
+}
+
 module.exports = async (req, res) => {
     try {
         if (req.method === "POST") {
@@ -112,6 +122,7 @@ module.exports = async (req, res) => {
                 name: row.name,
                 cardCount: Array.isArray(row.cards) ? row.cards.length : 0,
                 uploaderName: row.uploader_name,
+                userId: row.user_id,
             }));
 
             res.statusCode = 200;
@@ -140,8 +151,7 @@ module.exports = async (req, res) => {
                 .from('decks')
                 .select('id, user_id')
                 .eq('id', deckId)
-                .single()
-                .delete();
+                .single();
 
             if (deckError || !deck) {
                 res.statusCode = 404;
@@ -154,6 +164,19 @@ module.exports = async (req, res) => {
                 res.statusCode = 403;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'not_owner' }));
+                return;
+            }
+
+            const { error: deleteError } = await supabase
+                .from('decks')
+                .delete()
+                .eq('id', deckId);
+
+            if (deleteError) {
+                console.error('delete error:', deleteError);
+                res.statusCode = deleteError.code === '23503' ? 409 : 500; // foreign key violation or internal server error
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: deleteError.code === '23503' ? 'deck_in_use' : 'internal_server_error' }));
                 return;
             }
 
