@@ -234,11 +234,23 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            await 
-            supabase.from('match_players')
-            .delete()
-            .eq('match_id', match.id);
-            
+            // Child rows reference the match, so they have to go first or the
+            // match delete is rejected by the foreign keys.
+            for (const table of ['buzzes', 'match_players']) {
+                const { error: childError } = await supabase
+                    .from(table)
+                    .delete()
+                    .eq('match_id', match.id);
+
+                if (childError) {
+                    console.error(`could not clear ${table} for match ${match.id}:`, childError);
+                    res.statusCode = 500;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'internal_server_error' }));
+                    return;
+                }
+            }
+
             const { data, error } = await supabase
                 .from('matches')
                 .delete()
@@ -246,12 +258,13 @@ module.exports = async (req, res) => {
                 .select();
  
             if (error) {
+                console.error(`could not delete match ${match.id}:`, error);
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'internal_server_error' }));
                 return;
             }
- 
+
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true, deletedMatch: data }));

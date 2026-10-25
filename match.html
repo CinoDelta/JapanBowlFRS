@@ -503,7 +503,6 @@
                 timerEl.textContent = `Sending you back to the deck catalogue in ${timeLeft} seconds...`;
 
                 if (timeLeft <= 0) {
-                    // TO-DO: delete match server side at this exact interval
                     clearInterval(returnInterval);
                     const {data: { session }} = await supabaseClient.auth.getSession();
                     if (session) {
