@@ -254,7 +254,7 @@
 
 
 
-    function startTimer() {
+    function startTimer(data={}) {
         stopTimer();
 
         timerInterval = setInterval(() => {
@@ -576,7 +576,7 @@
                 mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
             }
 
-            startTimer();
+            startTimer(data);
         }
 
         categoryEl.textContent = `CATEGORY: ${data.question?.category ?? '—'}`;
