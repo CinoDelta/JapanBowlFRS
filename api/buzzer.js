@@ -104,10 +104,25 @@ function isCorrectAnswer(guess, card) {
 
 const BONUS_POINTS = 10;
 const BONUS_ANSWER_SECONDS = 15;
+const WORD_READ_INTERVAL_SECONDS = 0.4;
+const PERIOD_WORD_READ_INTERVAL_SECONDS = 0.6;
 // Everyone sees "BONUS QUESTION FOR TEAM N!" for this long before the bonus starts.
 const BONUS_LEAD_SECONDS = 3;
 // Accept submissions this long after the deadline, to cover network lag.
 const BONUS_GRACE_SECONDS = 1;
+
+function getWordReadDuration(word) {
+    return typeof word === 'string' && word.includes('.')
+        ? PERIOD_WORD_READ_INTERVAL_SECONDS
+        : WORD_READ_INTERVAL_SECONDS;
+}
+
+function getQuestionReadTime(questionText) {
+    const words = typeof questionText === 'string'
+        ? questionText.split(/\s+/).filter(Boolean)
+        : [];
+    return words.reduce((total, word) => total + getWordReadDuration(word), 0);
+}
 
 function getBonusReadTime(bonusCard, settings) {
     return bonusCard.readTime ?? settings?.earlyThresholdSeconds ?? 3;
@@ -215,11 +230,9 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            // Determine if this is an early buzz by comparing elapsed time
-            // against the card's readTime (or the host's default threshold).
-            const readTime = card?.readTime !== undefined
-                ? card.readTime
-                : match.settings.earlyThresholdSeconds;
+            // Match the fixed per-word reveal pace used by the client so the
+            // server and the UI agree on when a buzz is "early".
+            const readTime = getQuestionReadTime(card?.question);
 
             // The client clock pauses for each buzz (about 10s to answer plus about 4s
             // of result screens), so allow 15s per earlier buzz on top of the window.

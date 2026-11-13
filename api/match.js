@@ -28,6 +28,9 @@ async function expireStaleBuzzes(matchId, questionIndex) {
         .lt('created_at', cutoff);
 }
 
+const WORD_READ_INTERVAL_SECONDS = 0.4;
+const PERIOD_WORD_READ_INTERVAL_SECONDS = 0.6;
+
 function pickQuestionOrder(totalCards, questionCount) {
     const indices = Array.from({ length: totalCards }, (_, i) => i);
     for (let i = indices.length - 1; i > 0; i--) {
@@ -36,6 +39,19 @@ function pickQuestionOrder(totalCards, questionCount) {
     }
     const count = questionCount || totalCards;
     return indices.slice(0, count);
+}
+
+function getWordReadDuration(word) {
+    return typeof word === 'string' && word.includes('.')
+        ? PERIOD_WORD_READ_INTERVAL_SECONDS
+        : WORD_READ_INTERVAL_SECONDS;
+}
+
+function getQuestionReadTime(questionText) {
+    const words = typeof questionText === 'string'
+        ? questionText.split(/\s+/).filter(Boolean)
+        : [];
+    return words.reduce((total, word) => total + getWordReadDuration(word), 0);
 }
 
 // Mirrors getMainTimerForAnswerType() in match.html. The host picks the answer
@@ -110,11 +126,10 @@ async function questionIsOver(match, question) {
 
     if (playerCount && allBuzzes.length >= playerCount) return true;
 
-    // The client timer only counts down while the question is open — it stops
-    // for every buzz — so real elapsed time is always at least read + answer
-    // window by the time a client sees TIME'S UP. That makes this a floor,
-    // never an early reveal.
-    const readTime = question?.readTime ?? match.settings.earlyThresholdSeconds ?? 3;
+    // Match the fixed per-word reveal pace used by the client: 0.4s for
+    // ordinary words and 0.6s for words containing periods. This is
+    // intentionally not based on the host's early-threshold setting.
+    const readTime = getQuestionReadTime(question?.question);
     const answerWindow = getMainTimerForAnswerType(question?.answerType, match.settings.timeLimitSeconds);
     const elapsed = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
 
@@ -389,9 +404,7 @@ module.exports = async (req, res) => {
                             category: card.category,
                             question: card.question,
                             answerType: card['answer-type'],
-                            readTime: card.readTime !== undefined
-                                ? card.readTime
-                                : match.settings.earlyThresholdSeconds,
+                            readTime: getQuestionReadTime(card.question),
                             imgLink: card['img-link'] || null,
                         };
                     }

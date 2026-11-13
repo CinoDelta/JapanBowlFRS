@@ -168,6 +168,17 @@
         return japaneseTypes.includes(answerType) ? base * 2 : base;
     }
 
+    function getWordReadDuration(word) {
+        return typeof word === 'string' && word.includes('.') ? 0.6 : 0.4;
+    }
+
+    function getQuestionReadDuration(questionText) {
+        const words = typeof questionText === 'string'
+            ? questionText.split(/\s+/).filter(Boolean)
+            : [];
+        return words.reduce((total, word) => total + getWordReadDuration(word), 0);
+    }
+
     // "1", "1 and 2", "1, 2, and 3"
     function formatTeamList(teams) {
         if (teams.length === 1) return `${teams[0]}`;
@@ -280,14 +291,24 @@
                 // elapsed: amount of time since the question started, in seconds
                 const readRemaining = Math.max(0, readTimeTotal - elapsed);
 
-                // each word should be read out once per 0.4 seconds
-
+                // Words with periods are read more slowly than regular words:
+                // 0.6s for a period-bearing word, 0.4s otherwise.
                 const question = data.question?.question ?? '—';
                 const questionWords = question.split(/\s+/).filter(Boolean);
 
-                const amountOfWordsToShow = Math.min(questionWords.length, Math.floor((elapsed) / 0.4));
+                let cumulativeRevealTime = 0;
+                let wordsShown = 0;
+                for (const word of questionWords) {
+                    const wordDuration = getWordReadDuration(word);
+                    if (elapsed >= cumulativeRevealTime + wordDuration) {
+                        cumulativeRevealTime += wordDuration;
+                        wordsShown += 1;
+                    } else {
+                        break;
+                    }
+                }
 
-                const questionToShow = questionWords.slice(0, amountOfWordsToShow).join(' ');
+                const questionToShow = questionWords.slice(0, wordsShown).join(' ');
 
                 questionEl.innerHTML = `QUESTION:<br>${questionToShow}`
 
@@ -538,7 +559,7 @@
             currentQuestionIndex = data.currentQuestionIndex;
             resetQuestionUI();
 
-            readTimeTotal = data.question?.readTime ?? 3;
+            readTimeTotal = getQuestionReadDuration(data.question?.question ?? '');
             mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType, data.timeLimitSeconds);
             mainTimerRemaining = mainTimerTotal;
             questionStartedAt = new Date(data.questionStartedAt).getTime();
@@ -548,10 +569,10 @@
             if (elapsed < 0) {
                 timerPhase = 'getready';
             } else if (elapsed < readTimeTotal) {
-                timerPhase = 'reading';
-                
+                timerPhase = 'reading';        
             } else {
                 timerPhase = 'open';
+                questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
                 mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
             }
 
@@ -559,7 +580,6 @@
         }
 
         categoryEl.textContent = `CATEGORY: ${data.question?.category ?? '—'}`;
-        // questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
 
         if (data.question?.answerType) {
             answerTypeIcon.src = `images/Answer_Types/${data.question.answerType}.png`;
