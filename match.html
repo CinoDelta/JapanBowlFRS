@@ -983,8 +983,11 @@
 
     // ---- BUZZER CLICK ----
 
+    let buzzInFlight = false;
+
     async function buzzNowNowNow() {
-        if (!canBuzzNow()) return;
+        // Holding space fires keydown repeatedly; only one buzz request at a time.
+        if (buzzInFlight || !canBuzzNow()) return;
 
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
@@ -993,18 +996,34 @@
             return;
         }
 
+        // Respond the instant the button is pressed instead of after the
+        // round trip; rolled back below if the server turns the buzz down.
+        buzzInFlight = true;
         buzzerBtn.disabled = true;
+        buzzerSound.currentTime = 0;
+        buzzerSound.play().catch(() => {});
+        soundPlayedForBuzz = true;
 
-        const res = await fetch('/api/buzzer', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ code: matchCode }),
-        });
+        let data;
+        try {
+            const res = await fetch('/api/buzzer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ code: matchCode }),
+            });
+            data = await res.json();
+        } catch (e) {
+            data = { error: 'network_error' };
+        } finally {
+            buzzInFlight = false;
+        }
 
-        const data = await res.json();
+        // Someone else's buzz already explains the sound we played; any other
+        // rejection means no buzz happened, so let the next real one play.
+        if (!data.ok && data.error !== 'someone_answering') soundPlayedForBuzz = false;
 
         if (data.ok) {
             myBuzzUsed = true;
@@ -1015,11 +1034,9 @@
             answerInput.placeholder = 'Type your answer...';
             answerInput.focus();
 
-            buzzerSound.play();
             if (data.buzz?.is_early) {
                 //delay(1200).then(() => earlySound.play());
             }
-            soundPlayedForBuzz = true;
 
             enterAnswerPhase();
         } else if (data.error === 'already_buzzed') {

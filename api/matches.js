@@ -14,6 +14,34 @@ function generateMatchCode() {
     return code;
 }
 
+const DEFAULT_SETTINGS = {
+    timeLimitSeconds: 30,
+    earlyThresholdSeconds: 3,
+    teamsEnabled: false,
+    numTeams: null,
+    questionCount: null,
+};
+
+const isIntInRange = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+
+// Builds a clean settings object from what the client sent, or returns null
+// if anything is out of range. Unknown keys are dropped.
+function validateSettings(input) {
+    if (!input || typeof input !== 'object') return null;
+    const s = {
+        timeLimitSeconds: input.timeLimitSeconds,
+        earlyThresholdSeconds: input.earlyThresholdSeconds,
+        teamsEnabled: input.teamsEnabled === true,
+        numTeams: input.teamsEnabled === true ? input.numTeams : null,
+        questionCount: input.questionCount ?? null,
+    };
+    if (!isIntInRange(s.timeLimitSeconds, 1, 600)) return null;
+    if (!isIntInRange(s.earlyThresholdSeconds, 0, 120)) return null;
+    if (s.teamsEnabled && !isIntInRange(s.numTeams, 1, 100)) return null;
+    if (s.questionCount !== null && !isIntInRange(s.questionCount, 1, 10000)) return null;
+    return s;
+}
+
 async function authenticate(req) {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.replace('Bearer ', '');
@@ -47,6 +75,20 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            const { data: deck, error: deckError } = await supabase
+                .from('decks')
+                .select('id, matches_played')
+                .eq('id', deckId)
+                .maybeSingle();
+
+            if (deckError || !deck) {
+                if (deckError) console.error('deck lookup error:', deckError);
+                res.statusCode = 404;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'deck_not_found' }));
+                return;
+            }
+
             let match = null;
             for (let attempt = 0; attempt < 5 && !match; attempt++) {
                 const code = generateMatchCode();
@@ -57,18 +99,18 @@ module.exports = async (req, res) => {
                         host_user_id: user.id,
                         deck_id: deckId,
                         status: 'lobby',
-                        settings: {
-                            timeLimitSeconds: 30,
-                            earlyThresholdSeconds: 3,
-                            teamsEnabled: false,
-                            numTeams: null,
-                            questionCount: null,
-                        },
+                        settings: DEFAULT_SETTINGS,
                     })
                     .select()
                     .single();
 
-                if (!error) match = data;
+                if (!error) {
+                    match = data;
+                } else if (error.code !== '23505') {
+                    // Only a match-code collision is worth retrying.
+                    console.error('match insert error:', error);
+                    break;
+                }
             }
 
             if (!match) {
@@ -76,6 +118,15 @@ module.exports = async (req, res) => {
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'could_not_create_match' }));
                 return;
+            }
+
+            const { error: playedError } = await supabase
+                .from('decks')
+                .update({ matches_played: (deck.matches_played || 0) + 1 })
+                .eq('id', deckId);
+
+            if (playedError) {
+                console.error('failed to increment matches_played:', playedError);
             }
 
             const { error: playerError } = await supabase
@@ -143,11 +194,19 @@ module.exports = async (req, res) => {
                 return;
             }
  
-            const { code, settings } = req.body;
-            if (!code || !settings) {
+            const { code, settings: rawSettings } = req.body;
+            if (!code || !rawSettings) {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'missing_fields' }));
+                return;
+            }
+
+            const settings = validateSettings(rawSettings);
+            if (!settings) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'invalid_settings' }));
                 return;
             }
  

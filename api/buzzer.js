@@ -17,15 +17,44 @@ async function authenticate(req) {
 
 const ANSWER_TIMEOUT_SECONDS = 15;
 
+function staleCutoff() {
+    return Date.now() - ANSWER_TIMEOUT_SECONDS * 1000;
+}
+
 async function expireStaleBuzzes(matchId, questionIndex) {
-    const cutoff = new Date(Date.now() - ANSWER_TIMEOUT_SECONDS * 1000).toISOString();
     await supabase
         .from('buzzes')
         .update({ result: 'incorrect', guess: '(no answer)' })
         .eq('match_id', matchId)
         .eq('question_index', questionIndex)
         .is('result', null)
-        .lt('created_at', cutoff);
+        .lt('created_at', new Date(staleCutoff()).toISOString());
+}
+
+// Mirrors expireStaleBuzzes on rows read in parallel with it, so callers
+// don't have to wait for the update before reading.
+function applyStaleExpiry(buzzes) {
+    const cutoff = staleCutoff();
+    return (buzzes || []).map((b) =>
+        b.result === null && new Date(b.created_at).getTime() < cutoff
+            ? { ...b, result: 'incorrect', guess: '(no answer)' }
+            : b
+    );
+}
+
+// Pulls a single card out of the deck's cards array instead of the whole deck.
+async function fetchCard(deckId, cardIndex) {
+    if (cardIndex === undefined || cardIndex === null) return null;
+    const { data, error } = await supabase
+        .from('decks')
+        .select(`card:cards->${Number(cardIndex)}`)
+        .eq('id', deckId)
+        .single();
+    if (error) {
+        console.error('card fetch error:', error);
+        return null;
+    }
+    return data?.card ?? null;
 }
 
 function getMainTimerForAnswerType(answerType, baseSeconds) {
@@ -99,14 +128,6 @@ function getBonusWindowSeconds(bonusCard, settings) {
 module.exports = async (req, res) => {
     try {
         if (req.method === 'POST') {
-            const user = await authenticate(req);
-            if (!user) {
-                res.statusCode = 401;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'not_authenticated' }));
-                return;
-            }
-
             const { code } = req.body;
             if (!code) {
                 res.statusCode = 400;
@@ -115,11 +136,23 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const { data: match, error: matchError } = await supabase
-                .from('matches')
-                .select('id, status, current_question_index, question_started_at, settings, deck_id, question_order')
-                .eq('code', code.toUpperCase())
-                .single();
+            // Every query below runs in one of three parallel rounds, since
+            // each Supabase round trip is what makes a buzz feel slow.
+            const [user, { data: match, error: matchError }] = await Promise.all([
+                authenticate(req),
+                supabase
+                    .from('matches')
+                    .select('id, status, current_question_index, question_started_at, settings, deck_id, question_order')
+                    .eq('code', code.toUpperCase())
+                    .single(),
+            ]);
+
+            if (!user) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
+                return;
+            }
 
             if (matchError || !match || match.status !== 'in_progress') {
                 res.statusCode = 400;
@@ -128,72 +161,8 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            // Check if someone is CURRENTLY answering (an unresolved buzz exists).
-            // If so, nobody else can buzz until that person's answer is graded.
-
-            await expireStaleBuzzes(match.id, match.current_question_index);
-            const { data: activeBuzz } = await supabase
-                .from('buzzes')
-                .select('id, user_id')
-                .eq('match_id', match.id)
-                .eq('question_index', match.current_question_index)
-                .is('result', null)
-                .maybeSingle();
-
-            if (activeBuzz) {
-                res.statusCode = 409;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'someone_answering' }));
-                return;
-            }
-
-            // Check if this question was already answered correctly by anyone.
-            const { data: correctBuzz } = await supabase
-                .from('buzzes')
-                .select('id')
-                .eq('match_id', match.id)
-                .eq('question_index', match.current_question_index)
-                .eq('result', 'correct')
-                .maybeSingle();
-
-            if (correctBuzz) {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'question_already_answered' }));
-                return;
-            }
-
-            const { data: player, error: playerError } = await supabase
-                .from('match_players')
-                .select('team_number')
-                .eq('match_id', match.id)
-                .eq('user_id', user.id)
-                .single();
-
-            if (playerError || !player) {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'not_in_match' }));
-                return;
-            }
-
-            // Determine if this is an early buzz by comparing elapsed time
-            // against the card's readTime (or the host's default threshold).
-            const { data: deck } = await supabase
-                .from('decks')
-                .select('cards')
-                .eq('id', match.deck_id)
-                .single();
-
-            let readTime = match.settings.earlyThresholdSeconds;
-            let card = null;
-            if (deck) {
-                card = deck.cards[match.question_order[match.current_question_index]];
-                if (card?.readTime !== undefined) {
-                    readTime = card.readTime;
-                }
-            }
-
+            // Measure elapsed time as soon as the match is known, so the
+            // other lookups don't count against the player.
             const elapsedSeconds = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
 
             // question_started_at is in the future during "GET READY".
@@ -204,13 +173,57 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            const questionIndex = match.current_question_index;
+            const [, { data: rawBuzzes }, { data: player, error: playerError }, card] = await Promise.all([
+                expireStaleBuzzes(match.id, questionIndex),
+                supabase
+                    .from('buzzes')
+                    .select('result, created_at')
+                    .eq('match_id', match.id)
+                    .eq('question_index', questionIndex),
+                supabase
+                    .from('match_players')
+                    .select('team_number')
+                    .eq('match_id', match.id)
+                    .eq('user_id', user.id)
+                    .single(),
+                fetchCard(match.deck_id, match.question_order?.[questionIndex]),
+            ]);
+
+            if (playerError || !player) {
+                res.statusCode = 403;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_in_match' }));
+                return;
+            }
+
+            const buzzes = applyStaleExpiry(rawBuzzes);
+
+            // Someone is CURRENTLY answering (an unresolved buzz exists), so
+            // nobody else can buzz until that answer is graded.
+            if (buzzes.some((b) => b.result === null)) {
+                res.statusCode = 409;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'someone_answering' }));
+                return;
+            }
+
+            if (buzzes.some((b) => b.result === 'correct')) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'question_already_answered' }));
+                return;
+            }
+
+            // Determine if this is an early buzz by comparing elapsed time
+            // against the card's readTime (or the host's default threshold).
+            const readTime = card?.readTime !== undefined
+                ? card.readTime
+                : match.settings.earlyThresholdSeconds;
+
             // The client clock pauses for each buzz (about 10s to answer plus about 4s
             // of result screens), so allow 15s per earlier buzz on top of the window.
-            const { count: priorBuzzes } = await supabase
-                .from('buzzes')
-                .select('id', { count: 'exact', head: true })
-                .eq('match_id', match.id)
-                .eq('question_index', match.current_question_index);
+            const priorBuzzes = buzzes.length;
 
             const answerWindow = getMainTimerForAnswerType(card?.['answer-type'], match.settings.timeLimitSeconds);
             if (elapsedSeconds > readTime + answerWindow + (priorBuzzes || 0) * 15) {
@@ -280,14 +293,18 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            await expireStaleBuzzes(match.id, parseInt(questionIndex, 10));
-            // Get ALL buzzes for this question, ordered by time.
-            const { data: buzzes, error: buzzError } = await supabase
-                .from('buzzes')
-                .select('user_id, team_number, guess, result, is_early, created_at, bonus_question, bonus_started_at, bonus_ends_at, bonus_guess, bonus_result, bonus_user_id')
-                .eq('match_id', match.id)
-                .eq('question_index', parseInt(questionIndex, 10))
-                .order('created_at', { ascending: true });
+            const qIndex = parseInt(questionIndex, 10);
+            // Get ALL buzzes for this question, ordered by time. The expiry
+            // update runs alongside and is mirrored locally on the rows.
+            const [, { data: rawBuzzes, error: buzzError }] = await Promise.all([
+                expireStaleBuzzes(match.id, qIndex),
+                supabase
+                    .from('buzzes')
+                    .select('user_id, team_number, guess, result, is_early, created_at, bonus_question, bonus_started_at, bonus_ends_at, bonus_guess, bonus_result, bonus_user_id')
+                    .eq('match_id', match.id)
+                    .eq('question_index', qIndex)
+                    .order('created_at', { ascending: true }),
+            ]);
 
             if (buzzError) {
                 res.statusCode = 500;
@@ -296,40 +313,39 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            const buzzes = applyStaleExpiry(rawBuzzes);
+
             // The "active" buzz is the one with no result yet (someone currently answering).
-            const activeBuzz = (buzzes || []).find((b) => b.result === null) || null;
+            const activeBuzz = buzzes.find((b) => b.result === null) || null;
             // A question is fully resolved if someone got it correct.
-            const answeredCorrectly = (buzzes || []).some((b) => b.result === 'correct');
+            const answeredCorrectly = buzzes.some((b) => b.result === 'correct');
+            const bonusBuzz = buzzes.find((b) => b.result === 'correct' && b.bonus_question);
 
-            // Look up display names for all buzzers in one query.
-            const userIds = [...new Set((buzzes || []).flatMap((b) => [b.user_id, b.bonus_user_id]).filter(Boolean))];
-            let nameMap = {};
-            if (userIds.length > 0) {
-                const { data: players } = await supabase
-                    .from('match_players')
-                    .select('user_id, display_name')
-                    .eq('match_id', match.id)
-                    .in('user_id', userIds);
-                if (players) {
-                    players.forEach((p) => { nameMap[p.user_id] = p.display_name; });
-                }
-            }
+            // Display names and the bonus card don't depend on each other.
+            const userIds = [...new Set(buzzes.flatMap((b) => [b.user_id, b.bonus_user_id]).filter(Boolean))];
+            const [players, bonusSourceCard] = await Promise.all([
+                userIds.length > 0
+                    ? supabase
+                        .from('match_players')
+                        .select('user_id, display_name')
+                        .eq('match_id', match.id)
+                        .in('user_id', userIds)
+                        .then(({ data }) => data)
+                    : null,
+                bonusBuzz ? fetchCard(match.deck_id, match.question_order?.[qIndex]) : null,
+            ]);
 
-            const enriched = (buzzes || []).map((b) => ({
+            const nameMap = {};
+            (players || []).forEach((p) => { nameMap[p.user_id] = p.display_name; });
+
+            const enriched = buzzes.map((b) => ({
                 ...b,
                 displayName: nameMap[b.user_id] || null,
             }));
 
             let bonus = null;
-            const bonusBuzz = (buzzes || []).find((b) => b.result === 'correct' && b.bonus_question);
             if (bonusBuzz) {
-                const { data: deck } = await supabase
-                    .from('decks')
-                    .select('cards')
-                    .eq('id', match.deck_id)
-                    .single();
-
-                const bonusCard = deck?.cards[match.question_order[parseInt(questionIndex, 10)]]?.bonusQuestion;
+                const bonusCard = bonusSourceCard?.bonusQuestion;
                 if (bonusCard) {
                     const over = bonusBuzz.bonus_result !== null
                         || Date.now() >= new Date(bonusBuzz.bonus_ends_at).getTime();
@@ -364,14 +380,6 @@ module.exports = async (req, res) => {
         }
 
         if (req.method === 'PATCH') {
-            const user = await authenticate(req);
-            if (!user) {
-                res.statusCode = 401;
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'not_authenticated' }));
-                return;
-            }
-
             const { code, questionIndex, guess, bonus} = req.body;
             if (!code || questionIndex === undefined || typeof guess !== 'string') {
                 res.statusCode = 400;
@@ -380,11 +388,21 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const { data: match, error: matchError } = await supabase
-                .from('matches')
-                .select('id, deck_id, question_order, settings')
-                .eq('code', code.toUpperCase())
-                .single();
+            const [user, { data: match, error: matchError }] = await Promise.all([
+                authenticate(req),
+                supabase
+                    .from('matches')
+                    .select('id, deck_id, question_order, settings')
+                    .eq('code', code.toUpperCase())
+                    .single(),
+            ]);
+
+            if (!user) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: 'not_authenticated' }));
+                return;
+            }
 
             if (matchError || !match) {
                 res.statusCode = 404;
@@ -396,15 +414,24 @@ module.exports = async (req, res) => {
             // ---- BONUS ANSWER ----
             if (bonus === true) {
                 // The bonus hangs off the correct toss-up buzz for this question.
-                const { data: tossUp } = await supabase
-                    .from('buzzes')
-                    .select('id, team_number, bonus_ends_at')
-                    .eq('match_id', match.id)
-                    .eq('question_index', questionIndex)
-                    .eq('result', 'correct')
-                    .eq('bonus_question', true)
-                    .is('bonus_result', null)
-                    .maybeSingle();
+                const [{ data: tossUp }, { data: player }, sourceCard] = await Promise.all([
+                    supabase
+                        .from('buzzes')
+                        .select('id, team_number, bonus_ends_at')
+                        .eq('match_id', match.id)
+                        .eq('question_index', questionIndex)
+                        .eq('result', 'correct')
+                        .eq('bonus_question', true)
+                        .is('bonus_result', null)
+                        .maybeSingle(),
+                    supabase
+                        .from('match_players')
+                        .select('id, score, team_number')
+                        .eq('match_id', match.id)
+                        .eq('user_id', user.id)
+                        .single(),
+                    fetchCard(match.deck_id, match.question_order?.[questionIndex]),
+                ]);
 
                 if (!tossUp) {
                     res.statusCode = 400;
@@ -412,13 +439,6 @@ module.exports = async (req, res) => {
                     res.end(JSON.stringify({ error: 'no_active_bonus' }));
                     return;
                 }
-
-                const { data: player } = await supabase
-                    .from('match_players')
-                    .select('id, score, team_number')
-                    .eq('match_id', match.id)
-                    .eq('user_id', user.id)
-                    .single();
 
                 if (!player || player.team_number !== tossUp.team_number) {
                     res.statusCode = 403;
@@ -434,13 +454,7 @@ module.exports = async (req, res) => {
                     return;
                 }
 
-                const { data: deck } = await supabase
-                    .from('decks')
-                    .select('cards')
-                    .eq('id', match.deck_id)
-                    .single();
-
-                const bonusCard = deck?.cards[match.question_order[questionIndex]]?.bonusQuestion;
+                const bonusCard = sourceCard?.bonusQuestion;
                 if (!bonusCard) {
                     res.statusCode = 500;
                     res.setHeader('Content-Type', 'application/json');
@@ -488,15 +502,25 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            // Find THIS user's unresolved buzz for this question.
-            const { data: buzz, error: buzzFetchError } = await supabase
-                .from('buzzes')
-                .select('id, user_id, is_early, result')
-                .eq('match_id', match.id)
-                .eq('question_index', questionIndex)
-                .eq('user_id', user.id)
-                .is('result', null)
-                .maybeSingle();
+            // THIS user's unresolved buzz, the card and their player row
+            // don't depend on each other, so fetch them together.
+            const [{ data: buzz, error: buzzFetchError }, card, { data: playerRow }] = await Promise.all([
+                supabase
+                    .from('buzzes')
+                    .select('id, user_id, is_early, result')
+                    .eq('match_id', match.id)
+                    .eq('question_index', questionIndex)
+                    .eq('user_id', user.id)
+                    .is('result', null)
+                    .maybeSingle(),
+                fetchCard(match.deck_id, match.question_order?.[questionIndex]),
+                supabase
+                    .from('match_players')
+                    .select('id, score')
+                    .eq('match_id', match.id)
+                    .eq('user_id', user.id)
+                    .single(),
+            ]);
 
             if (buzzFetchError || !buzz) {
                 res.statusCode = 400;
@@ -505,21 +529,12 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            const { data: deck, error: deckError } = await supabase
-                .from('decks')
-                .select('cards')
-                .eq('id', match.deck_id)
-                .single();
-
-            if (deckError || !deck) {
+            if (!card) {
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ error: 'internal_server_error' }));
                 return;
             }
-
-            const cardIndex = match.question_order[questionIndex];
-            const card = deck.cards[cardIndex];
 
             const isCorrect = isCorrectAnswer(guess, card);
             const result = isCorrect ? 'correct' : 'incorrect';
@@ -552,23 +567,6 @@ module.exports = async (req, res) => {
                 .update({ result, guess, ...bonusFields })
                 .eq('id', buzz.id);
 
-            let allWrong = false;
-            if (!isCorrect) {
-              const { data: graded } = await supabase
-                    .from('buzzes')
-                    .select('result')
-                    .eq('match_id', match.id)
-                    .eq('question_index', questionIndex)
-                    .not('result', 'is', null);
-
-                const { count: playerCount } = await supabase
-                    .from('match_players')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('match_id', match.id);
-
-                allWrong = playerCount > 0 && (graded || []).length >= playerCount;
-            }
-
             if (updateBuzzError) {
                 console.error('grade update error:', updateBuzzError);
                 res.statusCode = 500;
@@ -577,21 +575,31 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            if (pointChange !== 0) {
-                const { data: playerRow } = await supabase
-                    .from('match_players')
-                    .select('id, score')
-                    .eq('match_id', match.id)
-                    .eq('user_id', user.id)
-                    .single();
-
-                if (playerRow) {
-                    await supabase
+            // The score write and the "did everyone miss?" check run together.
+            const [, allWrong] = await Promise.all([
+                pointChange !== 0 && playerRow
+                    ? supabase
                         .from('match_players')
                         .update({ score: playerRow.score + pointChange })
-                        .eq('id', playerRow.id);
-                }
-            }
+                        .eq('id', playerRow.id)
+                    : null,
+                isCorrect
+                    ? false
+                    : Promise.all([
+                        supabase
+                            .from('buzzes')
+                            .select('result')
+                            .eq('match_id', match.id)
+                            .eq('question_index', questionIndex)
+                            .not('result', 'is', null),
+                        supabase
+                            .from('match_players')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('match_id', match.id),
+                    ]).then(([{ data: graded }, { count: playerCount }]) =>
+                        playerCount > 0 && (graded || []).length >= playerCount
+                    ),
+            ]);
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
