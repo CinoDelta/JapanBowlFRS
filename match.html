@@ -275,7 +275,21 @@
                     soundBools.begin = true;
                     beginSound.play();
                 }
+
+                
+                // elapsed: amount of time since the question started, in seconds
                 const readRemaining = Math.max(0, readTimeTotal - elapsed);
+
+                // each word should be read out once per 0.4 seconds
+
+                const question = data.question?.question ?? '—';
+                const questionWords = question.split(/\s+/).filter(Boolean);
+
+                const amountOfWordsToShow = Math.min(questionWords.length, Math.floor((elapsed) / 0.4));
+
+                const questionToShow = questionWords.slice(0, amountOfWordsToShow).join(' ');
+
+                questionEl.innerHTML = `QUESTION:<br>${questionToShow}`
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
                 timerEl.style.color = 'red';
@@ -535,6 +549,7 @@
                 timerPhase = 'getready';
             } else if (elapsed < readTimeTotal) {
                 timerPhase = 'reading';
+                
             } else {
                 timerPhase = 'open';
                 mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
@@ -544,7 +559,7 @@
         }
 
         categoryEl.textContent = `CATEGORY: ${data.question?.category ?? '—'}`;
-        questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
+        // questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
 
         if (data.question?.answerType) {
             answerTypeIcon.src = `images/Answer_Types/${data.question.answerType}.png`;
@@ -1079,7 +1094,7 @@
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            window.location.href = 'login.html';
+            //window.location.href = 'login.html'; REMOVE COMMENT LATER
             return;
         }
         leaveToken = session.access_token;
