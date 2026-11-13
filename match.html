@@ -272,6 +272,7 @@
                 timerPhase = 'getready';
                 timerEl.style.color = '#ffd54f';
                 timerEl.textContent = `GET READY! ${Math.ceil(-elapsed)}`;
+                questionEl.textContent = '頑張って！';
                 updateBuzzerVisibility();
                 return;
             }
@@ -1114,7 +1115,7 @@
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            //window.location.href = 'login.html'; REMOVE COMMENT LATER
+            window.location.href = 'login.html';
             return;
         }
         leaveToken = session.access_token;
