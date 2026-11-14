@@ -114,6 +114,7 @@
 
     let readTimeTotal = 0;
     let questionStartedAt = 0;
+    let revealProgressSeconds = 0;
 
     let mainTimerTotal = 30;
     let mainTimerRemaining = 30;
@@ -287,20 +288,20 @@
                     beginSound.play();
                 }
 
-                
-                // elapsed: amount of time since the question started, in seconds
-                const readRemaining = Math.max(0, readTimeTotal - elapsed);
+                const readRemaining = Math.max(0, readTimeTotal - revealProgressSeconds);
 
                 // Words with periods are read more slowly than regular words:
                 // 0.6s for a period-bearing word, 0.4s otherwise.
                 const question = data.question?.question ?? '—';
                 const questionWords = question.split(/\s+/).filter(Boolean);
 
+                revealProgressSeconds = Math.min(readTimeTotal, revealProgressSeconds + 0.25);
+
                 let cumulativeRevealTime = 0;
                 let wordsShown = 0;
                 for (const word of questionWords) {
                     const wordDuration = getWordReadDuration(word);
-                    if (elapsed >= cumulativeRevealTime + wordDuration) {
+                    if (revealProgressSeconds >= cumulativeRevealTime + wordDuration) {
                         cumulativeRevealTime += wordDuration;
                         wordsShown += 1;
                     } else {
@@ -309,13 +310,12 @@
                 }
 
                 const questionToShow = questionWords.slice(0, wordsShown).join(' ');
-
-                questionEl.innerHTML = `QUESTION:<br>${questionToShow}`
+                questionEl.innerHTML = `QUESTION:<br>${questionToShow}`;
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
                 timerEl.style.color = 'red';
 
-                if (readRemaining <= 0) {
+                if (readRemaining <= 0.25) {
                     timerPhase = 'open';
                     mainTimerRemaining = mainTimerTotal;
                 }
@@ -327,7 +327,7 @@
                 updateBuzzerVisibility();
 
             } else if (timerPhase === 'open') {
-                soundBools.beginSound = false;
+                soundBools.begin = false;
                 mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
                 const display = Math.ceil(mainTimerRemaining);
 
@@ -369,16 +369,27 @@
     }
 
     function resumeOpenPhase() {
-        timerPhase = 'open';
         clearTimeout(answerAutoSubmitTimeout);
         iAmAnswering = false;
         answerSubmitted = false;
         answerInput.style.display = 'none';
         answerInput.value = '';
         answerInput.disabled = false;
-        // An early buzz hides the question; put it back for whoever is left.
+        // An early buzz hides the question; if it was a wrong early buzz, the
+        // judge re-reads from the start for the remaining players.
         questionEl.style.display = 'block';
+        questionEl.innerHTML = 'QUESTION:<br>';
         resultBanner.style.display = 'none';
+
+        if (revealProgressSeconds === 0 && readTimeTotal > 0) {
+            timerPhase = 'reading';
+        } else if (revealProgressSeconds < readTimeTotal) {
+            timerPhase = 'reading';
+        } else {
+            timerPhase = 'open';
+            mainTimerRemaining = Math.max(0, mainTimerRemaining);
+        }
+
         updateBuzzerVisibility();
     }
 
@@ -563,15 +574,18 @@
             mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType, data.timeLimitSeconds);
             mainTimerRemaining = mainTimerTotal;
             questionStartedAt = new Date(data.questionStartedAt).getTime();
+            revealProgressSeconds = 0;
 
             // If loading mid-question (e.g. page refresh), figure out phase.
             const elapsed = (Date.now() + clockOffset - questionStartedAt) / 1000;
             if (elapsed < 0) {
                 timerPhase = 'getready';
             } else if (elapsed < readTimeTotal) {
-                timerPhase = 'reading';        
+                timerPhase = 'reading';
+                revealProgressSeconds = Math.min(readTimeTotal, Math.max(0, elapsed));
             } else {
                 timerPhase = 'open';
+                revealProgressSeconds = readTimeTotal;
                 questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
                 mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
             }
@@ -812,6 +826,14 @@
             incorrectSound.play();
             soundPlayedForBuzz = false;
             soundPlayedForResult = false;
+            if (data.pointChange < 0) {
+                questionStartedAt = Date.now();
+                revealProgressSeconds = 0;
+                questionEl.innerHTML = 'QUESTION:<br>';
+                timerEl.textContent = 'RE-READING QUESTION...';
+                timerEl.style.color = '#ffd54f';
+                await delay(500);
+            }
             await delay(2000);
             resumeOpenPhase(); // this also sets iAmAnswering = false
             if (data.allWrong) revealAnswerAndAdvance(); // everyone has had their go and nobody got it

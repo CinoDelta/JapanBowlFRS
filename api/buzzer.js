@@ -588,6 +588,17 @@ module.exports = async (req, res) => {
                 return;
             }
 
+            // If a player buzzes early and is wrong, the question is re-read from
+            // the start for the remaining players. Reset the authoritative match
+            // clock so all clients line up on the same restart point.
+            if (result === 'incorrect' && buzz.is_early) {
+                await supabase
+                    .from('matches')
+                    .update({ question_started_at: new Date(Date.now()).toISOString() })
+                    .eq('id', match.id)
+                    .eq('current_question_index', questionIndex);
+            }
+
             // The score write and the "did everyone miss?" check run together.
             const [, allWrong] = await Promise.all([
                 pointChange !== 0 && playerRow
