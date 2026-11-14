@@ -873,14 +873,18 @@ a {
 
 #question-image {
     border: .3rem solid black;
-    width: 50%;
-    margin-left: 25%;
-    margin-right: 25%;
+    margin-left: 35%;
+    margin-right: 35%;
+    max-height: 20%;
+    max-width: 30%;
+    object-fit: contain;
 }
 
 #question-image-area {
     background-color: rgba(0, 0, 0, 0.5);
-    padding: .5rem;
+    padding: 1rem;
+    align-items: center;
+    justify-content: center;
 }
 
 .question-div {

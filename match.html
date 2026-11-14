@@ -44,8 +44,10 @@
       <p id="timer-display" style="display: block;">-- SECONDS LEFT</p>
 
       <div id="question-image-area">
-        <img id="question-image" style="display:none; max-width:100%;">
-        <p id="no-image-text" style="display:block; text-align: center;">(No image provided)</p>
+        <img id="question-image" style="display:none;">
+            <p id="no-image-text" style="display:block; text-align: center;">
+                (No image provided)
+            </p>
       </div>
 
       <div id="answer-area">
@@ -1134,7 +1136,7 @@
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            window.location.href = 'login.html';
+            //window.location.href = 'login.html';
             return;
         }
         leaveToken = session.access_token;
