@@ -124,17 +124,17 @@ function getQuestionReadTime(questionText) {
     return words.reduce((total, word) => total + getWordReadDuration(word), 0);
 }
 
-function getBonusReadTime(bonusCard, settings) {
-    return bonusCard.readTime ?? settings?.earlyThresholdSeconds ?? 3;
+function getBonusReadTime(bonusCard) {
+    return getQuestionReadTime(bonusCard?.question);
 }
 
 // Read time + answer time. Japanese answers get twice as long, same as toss-ups.
-function getBonusWindowSeconds(bonusCard, settings) {
+function getBonusWindowSeconds(bonusCard) {
     const japaneseTypes = ['JP', 'ひら', 'カナ', '漢'];
     const answerTime = japaneseTypes.includes(bonusCard['answer-type'])
         ? BONUS_ANSWER_SECONDS * 2
         : BONUS_ANSWER_SECONDS;
-    return getBonusReadTime(bonusCard, settings) + answerTime;
+    return getBonusReadTime(bonusCard) + answerTime;
 }
 
 // POST  /api/buzzer -> { code }  buzz in for the current question
@@ -367,7 +367,7 @@ module.exports = async (req, res) => {
                         teamNumber: bonusBuzz.team_number,
                         question: bonusCard.question,
                         answerType: bonusCard['answer-type'],
-                        readTime: getBonusReadTime(bonusCard, match.settings),
+                        readTime: getBonusReadTime(bonusCard),
                         startedAt: bonusBuzz.bonus_started_at,
                         endsAt: bonusBuzz.bonus_ends_at,
                         result: bonusBuzz.bonus_result,
@@ -566,7 +566,7 @@ module.exports = async (req, res) => {
             let bonusFields = {};
             if (hasBonus) {
                 const startsAt = Date.now() + BONUS_LEAD_SECONDS * 1000;
-                const endsAt = startsAt + getBonusWindowSeconds(card.bonusQuestion, match.settings) * 1000;
+                const endsAt = startsAt + getBonusWindowSeconds(card.bonusQuestion) * 1000;
                 bonusFields = {
                     bonus_question: true,
                     bonus_started_at: new Date(startsAt).toISOString(),

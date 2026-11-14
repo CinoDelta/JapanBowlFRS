@@ -310,7 +310,7 @@ div {
     width: 100%;
     max-width: 10000rem;
     text-align: center;
-    background-color: #ffa9e2;
+    background-color: #f0ee82;
     border: .2rem solid #ffffff;
     border-radius: .6rem;
 }
@@ -360,12 +360,12 @@ div {
 }
 
 #deckSearch {
-    background-color: rgb(14, 20, 65);
+    background-color: rgb(64, 65, 14);
     width: 75%;
     height: 3rem;
     border: .2rem solid rgb(255, 255, 255);
     border-radius: .6rem;
-    color: #f4acf1;     
+    color: #acf4cb;     
     font-size: 1.2rem;    
     font-style: normal;  
     font-weight: bold;    
@@ -377,7 +377,7 @@ div {
 
 
 input::placeholder {
-  color: #f4acf1;     
+  color: #acf4b7;     
   font-size: auto;    
   font-style: italic;  
   font-weight: bold;    
@@ -398,7 +398,7 @@ input::placeholder {
     align-items: stretch;
 }
 
-#deckList {
+.deckList {
     margin-top: 2rem;
     width: 50%;
     min-height: 31rem;
@@ -442,7 +442,7 @@ input::placeholder {
     justify-content: center;
 }
 
-#deckList p {
+.deckList p {
     font-size: 2rem;
     color: rgb(255, 255, 255);
     width: 100%;
@@ -471,7 +471,7 @@ input::placeholder {
     height: auto;
 }
 
-#deckList button {
+.deckList button {
     width: 90%;
     max-height: 6rem;
     height: auto;
@@ -488,6 +488,8 @@ input::placeholder {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: normal;
+    height: auto;
+    min-height: 8rem;
 }
 
 .display-box button {
@@ -510,6 +512,30 @@ input::placeholder {
 
 }
 
+#thisDeckName {
+
+    color: var(--lighterCherry);
+    background-color: rgb(33, 14, 56);
+    border: .1rem solid rgb(255, 255, 255);
+    border-radius: .6rem;
+    -webkit-text-stroke: 1px rgb(242, 178, 232);
+}
+
+#thisDeckCreator {
+    color: var(--lighterBatsuBlue);
+    background-color: rgb(24, 4, 47);
+    border: .1rem solid rgb(255, 255, 255);
+    border-radius: .6rem;
+    -webkit-text-stroke: 1px rgb(207, 178, 242);
+}
+
+#thisDeckCardCount {
+    color: var(--lighterCherry);
+    background-color: rgb(44, 24, 66);
+    border: .1rem solid rgb(255, 255, 255);
+    border-radius: .6rem;
+    -webkit-text-stroke: 1px rgb(242, 178, 232);
+}
 
 #game-area {
     background: #180310;
@@ -799,7 +825,6 @@ a {
     padding-bottom: 0rem;
     padding-left: 1rem;
     color: var(--maruRed);
-    -webkit-text-stroke: 1px white;
 }
 
 
@@ -807,12 +832,16 @@ a {
     color: var(--lighterBatsuBlue);
     font-size: 2rem;
     margin-bottom: 1rem;
+        -webkit-text-stroke: 1px white;
 }
 
 #current-question {
     color: var(--lighterMaruRed);
     font-size: 2rem;
     margin-bottom: 2rem;
+    background-color: rgba(26, 3, 5, 0.9);
+    padding-right: 1rem;
+    border-radius: .6rem;
 }
 
 #answer-area {
@@ -882,7 +911,14 @@ a {
         gap: 0.75rem;
     }
 
-    #deckList,
+    .deckList {
+        width: 100%;
+        min-height: 18rem;
+        max-height: 45rem;
+        height: 45rem;
+        margin-top: 1rem;
+        
+    }
     #deckListOne {
         width: 100%;
         min-height: 18rem;
