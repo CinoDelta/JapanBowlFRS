@@ -28,7 +28,7 @@ loadDecks();
 </script>
 */
 let imgCounter = 0;
-const container = document.getElem('deckListOne');
+const container = document.getElementById('deckListOne');
 const deckListHeader = document.getElementById('deckSearchHeader');
 const deckSearch = document.getElementById('deckSearch');
 const deckCreatorName = document.getElementById('thisDeckCreator');
