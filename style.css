@@ -322,11 +322,21 @@ div {
     width: 100%;
     gap: 0.75rem;
     padding-top: 0.75rem;
+    height: 5rem;
 }
 
 .deck-header-row .sakura-image {
     justify-self: center;
 }
+
+.sakura-PDL {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    transform: scale(1.5);
+    justify-self: center;
+}
+
 
 .deck-header-row h2 {
     margin: 0;
@@ -338,9 +348,19 @@ div {
     justify-self: center;
 }
 
+#deckSearchHeader{
+    margin: 0;
+    color: rgb(255, 250, 192);
+    font-size: 2.25rem;
+    font-style: italic;
+    border-radius: .6rem;
+    text-align: center;
+    justify-self: center;
+    -webkit-text-stroke: 1px rgb(11, 14, 47);
+}
 
 #deckSearch {
-    background-color: rgb(89, 106, 214);
+    background-color: rgb(14, 20, 65);
     width: 75%;
     height: 3rem;
     border: .2rem solid rgb(255, 255, 255);
@@ -436,18 +456,18 @@ input::placeholder {
     margin-left: 0.6rem;
     margin-right: 0.6rem;
     margin-bottom: 0.1rem;
-    padding-top: 0.35rem;
-    padding-bottom: 0.25rem;
+    padding-top: 1rem;
+    padding-bottom: 0rem;
     font-style: bold;
     font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
     background-color: #e46f98;
     text-align: center;
     border: 3px dashed;
     border-radius: 1rem;
-    font-size: 1.4rem;
+    font-size: auto;
     font-style: italic;
     line-height: 1.2;
-    min-height: 2.2rem;
+    min-height: 5rem;
     height: auto;
 }
 
@@ -869,10 +889,11 @@ a {
         max-height: 22rem;
         height: 22rem;
         margin-top: 1rem;
+        
     }
 
     #deckListOne option {
-        font-size: 1.1rem;
+        font-size: auto;
         margin-left: 0.3rem;
         margin-right: 0.3rem;
     }

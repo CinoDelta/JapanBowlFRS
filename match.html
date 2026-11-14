@@ -77,9 +77,9 @@
     const resultBanner = document.getElementById('result-banner');
 
     // --- Sounds ---
-    //const correctSound = new Audio('sounds/correctJapanese.wav');
-    //const earlySound = new Audio('sounds/earlyJapanese.wav');
-    //const incorrectSound = new Audio('sounds/incorrectJapanese.wav');
+    const correctSound = new Audio('sounds/correctJapanese.mp3');
+    const earlySound = new Audio('sounds/earlyJapanese.mp3');
+    const incorrectSound = new Audio('sounds/incorrectJapanese.mp3');
     const buzzerSound = new Audio('sounds/Buzzer.wav');
     const getReadySound = new Audio('sounds/getReady.wav');
     const beginSound = new Audio('sounds/beginSound.wav');
@@ -95,9 +95,8 @@
     let clockOffset = 0;
 
 
-    // changeVolume(correctSound);
-    // changeVolume(earlySound);
-    // changeVolume(incorrectSound);
+    changeVolume(correctSound);
+    changeVolume(incorrectSound);
     changeVolume(buzzerSound);
 
     const matchTheme = new Audio('sounds/teamMatch.ogg');
@@ -403,7 +402,7 @@
 
         if (!soundPlayedForResult) {
             soundPlayedForResult = true;
-            //incorrectSound.play();
+            incorrectSound.play();
         }
 
         let answer = null;
@@ -642,7 +641,7 @@
 
             if (!soundPlayedForResult) {
                 soundPlayedForResult = true;
-                //correctSound.play();
+                correctSound.play();
             }
 
             if (data.bonus) {
@@ -666,9 +665,7 @@
                 soundPlayedForBuzz = true;
                 buzzerSound.play();
                 if (data.activeBuzz.is_early) {
-                    // Ok so here the question shouldn't be visible
-                    //delay(1200).then(() => earlySound.play());
-                    //whoops forget to comment
+                    earlySound.play();
                 }
             }
 
@@ -712,7 +709,7 @@
 
             if (latest.result === 'incorrect' && !soundPlayedForResult) {
                 soundPlayedForResult = true;
-                //incorrectSound.play();
+                incorrectSound.play();
 
                 resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
                 resultBanner.style.display = 'block';
@@ -798,7 +795,7 @@
         resultBanner.textContent = `That's ${data.result.toUpperCase()}!`;
 
         if (data.result === 'correct') {
-            //correctSound.play();
+            correctSound.play();
             iAmAnswering = false;
             questionOver = true;
             updateBuzzerVisibility();
@@ -812,7 +809,7 @@
                 tryAdvance();
             }
         } else {
-            //incorrectSound.play();
+            incorrectSound.play();
             soundPlayedForBuzz = false;
             soundPlayedForResult = false;
             await delay(2000);
@@ -1071,7 +1068,7 @@
             answerInput.focus();
 
             if (data.buzz?.is_early) {
-                //delay(1200).then(() => earlySound.play());
+                earlySound.play();
             }
 
             enterAnswerPhase();
@@ -1129,10 +1126,10 @@
     
         //matchStart.play(); bring this back one day?
 
-        matchTheme.loop = true;
-        matchTheme.play().catch((err) => {
-            console.warn('Autoplay failed:', err);
-        });
+        //matchTheme.loop = true;
+        //matchTheme.play().catch((err) => {
+        //    console.warn('Autoplay failed:', err);
+        //});
 
         await loadPlayers();
         await loadQuestion();
