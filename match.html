@@ -15,6 +15,11 @@
     <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
   </header>
 
+  <div id="bonus-slam" aria-hidden="true">
+    <span class="bonus-slam-title">BONUS!</span>
+    <span class="bonus-slam-team" id="bonus-slam-team"></span>
+  </div>
+
   <div class="game-box">
 
     <div id="teams-panel">
@@ -29,6 +34,8 @@
     </div>
 
     <div class="game-panel">
+        <img src="images/questionCorrect.png" class="match-top-image" id="correctImage" alt="" aria-hidden="true">
+        <img src="images/questionwrong.png" class="match-top-image" id="wrongImage" alt="" aria-hidden="true">
       <div class="question-div" style="display:flex; justify-content:space-between; align-items:center; width:90%; margin-left: 5%; margin-right: 5%;">
         <img class="category-image" src="images/Category.png" alt="Category icon">
         <h2 id="current-category">CATEGORY: —</h2>
@@ -77,14 +84,65 @@
     const buzzerBtn = document.getElementById('buzzer-btn');
     const answerInput = document.getElementById('answer-input');
     const resultBanner = document.getElementById('result-banner');
+    const correctMaru = document.getElementById('correctImage');
+    const incorrectBatsu = document.getElementById('wrongImage');
+    const bonusSlam = document.getElementById('bonus-slam');
+    const bonusSlamTeam = document.getElementById('bonus-slam-team');
+
+    // Restarts a CSS animation, even if its class is still on the element.
+    function playAnim(el, className) {
+        el.classList.remove(className);
+        void el.offsetWidth; // forces the browser to notice the class was removed
+        el.classList.add(className);
+    }
+
+    // Flashes the ◯ (correct) or ✕ (incorrect) stamp for 2 seconds. A new
+    // stamp replaces one that is still showing and gets its own full 2
+    // seconds, instead of being cut short by the old stamp's timer.
+    let stampTimer = null;
+    function flashStamp(stamp) {
+        clearTimeout(stampTimer);
+        correctMaru.classList.remove('flashing');
+        incorrectBatsu.classList.remove('flashing');
+        playAnim(stamp, 'flashing');
+        stampTimer = setTimeout(() => stamp.classList.remove('flashing'), 2000);
+    }
+
+    // "BONUS!" slams onto the screen. The server shows the bonus banner for
+    // 3 seconds before the bonus starts, and the slam is over in 2.4, so it
+    // never covers the bonus question itself.
+    function slamBonus(teamNumber) {
+        bonusSlamTeam.textContent = teamNumber === myTeamNumber
+            ? `YOUR TEAM! (TEAM ${teamNumber})`
+            : `FOR TEAM ${teamNumber}`;
+        playAnim(bonusSlam, 'slamming');
+    }
+
+    bonusSlam.addEventListener('animationend', (event) => {
+        // The title and team line inside finish first; wait for the fade-out.
+        if (event.animationName === 'bonusFadeOut') bonusSlam.classList.remove('slamming');
+    });
 
     // --- Sounds ---
     const correctSound = new Audio('sounds/correctJapanese.mp3');
     const earlySound = new Audio('sounds/gamesynthbeep01.mp3')
     const incorrectSound = new Audio('sounds/incorrectJapanese.mp3');
     const buzzerSound = new Audio('sounds/Buzzer.wav');
-    const getReadySound = new Audio('sounds/getReady.wav');
     const beginSound = new Audio('sounds/beginSound.wav');
+
+    // 頑張りましょう！ clips. One is picked at random each time.
+    const ganbaruSounds = [
+        'sounds/Ganbarus/GB.01.A-LittleWitchAcademia12_1_0.02.22.858-0.02.26.128.mp3',
+        'sounds/Ganbarus/GB.02.Audio 1.mp3',
+        'sounds/Ganbarus/GB.03.Audio 2.mp3',
+        'sounds/Ganbarus/GB.04.Audio 3.mp3',
+    ].map((src) => new Audio(encodeURI(src))); // encodeURI handles the spaces
+
+    function playGanbaru() {
+        const clip = ganbaruSounds[Math.floor(Math.random() * ganbaruSounds.length)];
+        clip.currentTime = 0;
+        clip.play().catch(() => {}); // browsers may block audio before a click
+    }
 
     let soundBools = {
         "getReady": true,
@@ -287,7 +345,7 @@
             if (elapsed < 0) {
                 if (soundBools.getReady === false) {
                     soundBools.getReady = true;
-                    getReadySound.play();
+                    playGanbaru();
                 }
                 timerPhase = 'getready';
                 timerEl.style.color = '#ffd54f';
@@ -348,6 +406,7 @@
 
             } else if (timerPhase === 'open') {
                 soundBools.begin = false;
+                soundBools.getReady = false; // so the next GET READY plays a ganbaru
                 mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
                 const display = Math.ceil(mainTimerRemaining);
 
@@ -434,6 +493,7 @@
         if (!soundPlayedForResult) {
             soundPlayedForResult = true;
             incorrectSound.play();
+            flashStamp(incorrectBatsu);
         }
 
         let answer = null;
@@ -677,6 +737,7 @@
             if (!soundPlayedForResult) {
                 soundPlayedForResult = true;
                 correctSound.play();
+                flashStamp(correctMaru);
             }
 
             if (data.bonus) {
@@ -745,6 +806,7 @@
             if (latest.result === 'incorrect' && !soundPlayedForResult) {
                 soundPlayedForResult = true;
                 incorrectSound.play();
+                flashStamp(incorrectBatsu);
 
                 resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
                 resultBanner.style.display = 'block';
@@ -831,6 +893,7 @@
 
         if (data.result === 'correct') {
             correctSound.play();
+            flashStamp(correctMaru);
             iAmAnswering = false;
             questionOver = true;
             updateBuzzerVisibility();
@@ -845,6 +908,7 @@
             }
         } else {
             incorrectSound.play();
+            flashStamp(incorrectBatsu);
             soundPlayedForBuzz = false;
             soundPlayedForResult = false;
             if (data.pointChange < 0) {
@@ -919,6 +983,8 @@
             updateBuzzerVisibility();
 
             categoryEl.textContent = `BONUS QUESTION FOR TEAM ${bonus.teamNumber}!`;
+            // Someone who loads the page after the bonus ended doesn't need it.
+            if (!bonus.over) slamBonus(bonus.teamNumber);
             setLabeledText(questionEl, 'BONUS:', bonus.question);
             questionEl.style.display = 'block';
             if (bonus.answerType) {
@@ -1032,6 +1098,8 @@
 
         answerInput.style.display = 'none';
         timerEl.style.display = 'block';
+
+        flashStamp(bonus.result === 'correct' ? correctMaru : incorrectBatsu);
 
         if (bonus.result === 'correct') {
             timerEl.style.color = '#ffd54f';
@@ -1155,7 +1223,7 @@
     async function init() {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
-            //window.location.href = 'login.html';
+            window.location.href = 'login.html';
             return;
         }
         leaveToken = session.access_token;

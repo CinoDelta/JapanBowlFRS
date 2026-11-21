@@ -158,6 +158,64 @@ async function fetchCurrentCard(match) {
     return data?.card ?? null;
 }
 
+// How one player did, given the final standings. With only one team there was
+// nobody to beat, so it is 'solo' and doesn't count as a win or a loss.
+function outcomeFor(player, standings) {
+    if (Object.keys(standings.teamScores).length < 2) return 'solo';
+    if (standings.winningTeam === player.team_number) return 'win';
+    if (standings.tyingTeams.includes(player.team_number)) return 'tie';
+    return 'loss';
+}
+
+// Writes one match_results row per player (see supabase/match_results.sql).
+// Every browser in the match may report the finish, so duplicates are ignored.
+async function recordMatchResults(match, players, standings) {
+    try {
+        const [{ data: deck }, { data: buzzes }] = await Promise.all([
+            supabase.from('decks').select('name').eq('id', match.deck_id).maybeSingle(),
+            supabase
+                .from('buzzes')
+                .select('user_id, result, bonus_user_id, bonus_result')
+                .eq('match_id', match.id),
+        ]);
+
+        const allBuzzes = buzzes || [];
+        const teamCount = Object.keys(standings.teamScores).length;
+
+        const rows = (players || [])
+            .filter((p) => p.user_id)
+            .map((p) => {
+                const mine = allBuzzes.filter((b) => b.user_id === p.user_id && b.result !== null);
+                return {
+                    match_id: String(match.id),
+                    user_id: p.user_id,
+                    deck_id: match.deck_id === null ? null : String(match.deck_id),
+                    deck_name: deck?.name ?? null,
+                    team_number: p.team_number,
+                    score: p.score || 0,
+                    outcome: outcomeFor(p, standings),
+                    player_count: players.length,
+                    team_count: teamCount,
+                    was_host: p.user_id === match.host_user_id,
+                    correct_buzzes: mine.filter((b) => b.result === 'correct').length,
+                    total_buzzes: mine.length,
+                    bonus_correct: allBuzzes.filter((b) =>
+                        b.bonus_user_id === p.user_id && b.bonus_result === 'correct').length,
+                };
+            });
+
+        if (rows.length === 0) return;
+
+        const { error } = await supabase
+            .from('match_results')
+            .upsert(rows, { onConflict: 'match_id,user_id', ignoreDuplicates: true });
+
+        if (error) console.error('could not record match results:', error);
+    } catch (err) {
+        console.error('could not record match results:', err);
+    }
+}
+
 function assignTeams(players, settings) {
     if (!settings.teamsEnabled) {
         return players.map((p, i) => ({ id: p.id, team_number: i + 1 }));
@@ -348,7 +406,7 @@ module.exports = async (req, res) => {
 
                     const {data: players, error: playersError} = await supabase
                         .from('match_players')
-                        .select('team_number, score')
+                        .select('user_id, team_number, score')
                         .eq('match_id', match.id);
 
                     if (playersError) {
@@ -359,6 +417,11 @@ module.exports = async (req, res) => {
                     }
 
                     const standings = computeStandings(players);
+
+                    // Save everyone's result for their profile before the
+                    // host's browser deletes the match. A failure here is only
+                    // logged, so it can never stop a match from finishing.
+                    await recordMatchResults(match, players, standings);
 
                     // sending back the winning team to the client
                     res.statusCode = 200;
