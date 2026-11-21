@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const ReadTiming = require('../PracticeJS/readTiming.js');
 
 const supabase = createClient(
     process.env.JFRS_SUPABASE_URL,
@@ -104,24 +105,15 @@ function isCorrectAnswer(guess, card) {
 
 const BONUS_POINTS = 10;
 const BONUS_ANSWER_SECONDS = 15;
-const WORD_READ_INTERVAL_SECONDS = 0.4;
-const PERIOD_WORD_READ_INTERVAL_SECONDS = 0.6;
 // Everyone sees "BONUS QUESTION FOR TEAM N!" for this long before the bonus starts.
 const BONUS_LEAD_SECONDS = 3;
 // Accept submissions this long after the deadline, to cover network lag.
 const BONUS_GRACE_SECONDS = 1;
 
-function getWordReadDuration(word) {
-    return typeof word === 'string' && word.includes('.')
-        ? PERIOD_WORD_READ_INTERVAL_SECONDS
-        : WORD_READ_INTERVAL_SECONDS;
-}
-
+// Shared with match.html so the server and the screen agree on when reading
+// ends. English reads a word at a time, Japanese a character at a time.
 function getQuestionReadTime(questionText) {
-    const words = typeof questionText === 'string'
-        ? questionText.split(/\s+/).filter(Boolean)
-        : [];
-    return words.reduce((total, word) => total + getWordReadDuration(word), 0);
+    return ReadTiming.getReadTime(questionText);
 }
 
 function getBonusReadTime(bonusCard) {
@@ -230,8 +222,8 @@ module.exports = async (req, res) => {
                 return;
             }
 
-            // Match the fixed per-word reveal pace used by the client so the
-            // server and the UI agree on when a buzz is "early".
+            // Same read-out pace as the client (PracticeJS/readTiming.js), so
+            // the server and the UI agree on when a buzz is "early".
             const readTime = getQuestionReadTime(card?.question);
 
             // The client clock pauses for each buzz (about 10s to answer plus about 4s

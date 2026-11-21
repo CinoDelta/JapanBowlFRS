@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const ReadTiming = require('../PracticeJS/readTiming.js');
 
 const supabase = createClient(
     process.env.JFRS_SUPABASE_URL,
@@ -28,9 +29,6 @@ async function expireStaleBuzzes(matchId, questionIndex) {
         .lt('created_at', cutoff);
 }
 
-const WORD_READ_INTERVAL_SECONDS = 0.4;
-const PERIOD_WORD_READ_INTERVAL_SECONDS = 0.6;
-
 function pickQuestionOrder(totalCards, questionCount) {
     const indices = Array.from({ length: totalCards }, (_, i) => i);
     for (let i = indices.length - 1; i > 0; i--) {
@@ -41,17 +39,10 @@ function pickQuestionOrder(totalCards, questionCount) {
     return indices.slice(0, count);
 }
 
-function getWordReadDuration(word) {
-    return typeof word === 'string' && word.includes('.')
-        ? PERIOD_WORD_READ_INTERVAL_SECONDS
-        : WORD_READ_INTERVAL_SECONDS;
-}
-
+// Shared with match.html so the server and the screen agree on when reading
+// ends. English reads a word at a time, Japanese a character at a time.
 function getQuestionReadTime(questionText) {
-    const words = typeof questionText === 'string'
-        ? questionText.split(/\s+/).filter(Boolean)
-        : [];
-    return words.reduce((total, word) => total + getWordReadDuration(word), 0);
+    return ReadTiming.getReadTime(questionText);
 }
 
 // Mirrors getMainTimerForAnswerType() in match.html. The host picks the answer
@@ -129,9 +120,9 @@ async function questionIsOver(match, question, graceSeconds = 0) {
 
     if (playerCount && allBuzzes.length >= playerCount) return true;
 
-    // Match the fixed per-word reveal pace used by the client: 0.4s for
-    // ordinary words and 0.6s for words containing periods. This is
-    // intentionally not based on the host's early-threshold setting.
+    // Same read-out pace as the client (PracticeJS/readTiming.js: English a
+    // word at a time, Japanese a character at a time). This is intentionally
+    // not based on the host's early-threshold setting.
     const readTime = getQuestionReadTime(question?.question);
     const answerWindow = getMainTimerForAnswerType(question?.answerType, match.settings.timeLimitSeconds);
     const elapsed = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;

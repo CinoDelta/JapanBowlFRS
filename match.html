@@ -63,6 +63,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="PracticeJS/supabaseclient.js"></script>
+  <script src="PracticeJS/readTiming.js"></script>
 
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -228,15 +229,11 @@
         return japaneseTypes.includes(answerType) ? base * 2 : base;
     }
 
-    function getWordReadDuration(word) {
-        return typeof word === 'string' && word.includes('.') ? 0.6 : 0.4;
-    }
-
+    // Read-out timing lives in PracticeJS/readTiming.js, shared with the API so
+    // the screen and the server agree on when reading ends. English reads a
+    // word at a time, Japanese a character at a time.
     function getQuestionReadDuration(questionText) {
-        const words = typeof questionText === 'string'
-            ? questionText.split(/\s+/).filter(Boolean)
-            : [];
-        return words.reduce((total, word) => total + getWordReadDuration(word), 0);
+        return ReadTiming.getReadTime(questionText);
     }
 
     // "1", "1 and 2", "1, 2, and 3"
@@ -363,13 +360,14 @@
             if (timerPhase === 'reading') {
                 const readRemaining = Math.max(0, readTimeTotal - revealProgressSeconds);
 
-                // Words with periods are read more slowly than regular words:
-                // 0.6s for a period-bearing word, 0.4s otherwise.
+                // English appears a word at a time and Japanese a character
+                // at a time (see PracticeJS/readTiming.js for the timings).
                 const question = data.question?.question ?? '—';
-                const questionWords = question.split(/\s+/).filter(Boolean);
 
                 revealProgressSeconds = Math.min(readTimeTotal, revealProgressSeconds + 0.25);
 
+                const questionToShow = ReadTiming.getRevealedText(question, revealProgressSeconds);
+                setLabeledText(questionEl, 'QUESTION:', questionToShow);
                 let cumulativeRevealTime = 0;
                 let wordsShown = 0;
                 for (const word of questionWords) {
@@ -381,9 +379,6 @@
                         break;
                     }
                 }
-
-                const questionToShow = questionWords.slice(0, wordsShown).join(' ');
-                setLabeledText(questionEl, 'QUESTION:', questionToShow);
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
                 timerEl.style.color = 'red';
