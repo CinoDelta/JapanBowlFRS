@@ -82,7 +82,7 @@ document.getElementById('uploadForm').addEventListener('submit', async (event) =
     const data = await res.json();
 
     if (!res.ok || !data.ok) {
-        statusEl.textContent = 'Upload failed: ' + (data.error || 'unknown error.');
+        statusEl.textContent = 'Upload failed: ' + (data.message || data.error || 'unknown error.');
         return;
     }
 

@@ -208,6 +208,12 @@
         return graded.length >= totalPlayerCount;
     }
 
+    // Shows "LABEL:<line break>text". Question text comes from uploaded decks,
+    // so it is inserted as plain text and can never be run as HTML.
+    function setLabeledText(el, label, text) {
+        el.replaceChildren(label, document.createElement('br'), text ?? '');
+    }
+
     // ---- TEAMS PANEL ----
     function renderTeams(players) {
         const teamsMap = {};
@@ -223,13 +229,25 @@
             const totalScore = teamPlayers.reduce((sum, p) => sum + p.score, 0);
             const div = document.createElement('div');
             div.className = 'team-info';
-            div.innerHTML = `
-                <h3 class="team-name">TEAM ${teamNum}</h3>
-                <ol class="player-list">
-                    ${teamPlayers.map((p) => `<li>${p.display_name.includes('@') ? p.display_name.split('@')[0] : p.display_name} - Points: ${p.score}</li>`).join('')}
-                </ol>
-                <h3>TOTAL SCORE: ${totalScore}</h3>
-            `;
+            // Player names come from users, so build the list with
+            // textContent rather than an HTML string.
+            const teamName = document.createElement('h3');
+            teamName.className = 'team-name';
+            teamName.textContent = `TEAM ${teamNum}`;
+
+            const playerList = document.createElement('ol');
+            playerList.className = 'player-list';
+            teamPlayers.forEach((p) => {
+                const name = p.display_name.includes('@') ? p.display_name.split('@')[0] : p.display_name;
+                const li = document.createElement('li');
+                li.textContent = `${name} - Points: ${p.score}`;
+                playerList.appendChild(li);
+            });
+
+            const total = document.createElement('h3');
+            total.textContent = `TOTAL SCORE: ${totalScore}`;
+
+            div.append(teamName, playerList, total);
             teamsPanel.appendChild(div);
         });
     }
@@ -312,7 +330,7 @@
                 }
 
                 const questionToShow = questionWords.slice(0, wordsShown).join(' ');
-                questionEl.innerHTML = `QUESTION:<br>${questionToShow}`;
+                setLabeledText(questionEl, 'QUESTION:', questionToShow);
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
                 timerEl.style.color = 'red';
@@ -442,7 +460,8 @@
         for (let attempt = 0; attempt < 10; attempt ++) {
             if (questionAtReveal !== currentQuestionIndex) return;
             const result = await tryAdvance();
-            if (!result || result.ok || result.error !== 'someone_still_answering') return;
+            const retryable = ['someone_still_answering', 'question_not_over'];
+            if (!result || result.ok || !retryable.includes(result.error)) return;
             await delay(3000);
         }
     }
@@ -588,7 +607,7 @@
             } else {
                 timerPhase = 'open';
                 revealProgressSeconds = readTimeTotal;
-                questionEl.innerHTML = `QUESTION:<br>${data.question?.question ?? '—'}`;
+                setLabeledText(questionEl, 'QUESTION:', data.question?.question ?? '—');
                 mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
             }
 
@@ -900,7 +919,7 @@
             updateBuzzerVisibility();
 
             categoryEl.textContent = `BONUS QUESTION FOR TEAM ${bonus.teamNumber}!`;
-            questionEl.innerHTML = `BONUS:<br>${bonus.question}`;
+            setLabeledText(questionEl, 'BONUS:', bonus.question);
             questionEl.style.display = 'block';
             if (bonus.answerType) {
                 answerTypeIcon.src = `images/Answer_Types/${bonus.answerType}.png`;

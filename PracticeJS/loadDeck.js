@@ -142,9 +142,20 @@ async function displayDeckInfo() {
 
 
 
-    deckCardCount.innerHTML = `<i>Card Count: </i> ${targetDeck.cardCount}`;
-    deckName.innerHTML = `<i>Deck Name: </i>${targetDeck.name}`;
-    deckCreatorName.innerHTML = `<i>Deck Creator: </i> <u>${targetDeck.uploaderName}</u> `
+    // Deck names and uploader names come from users, so they are only ever
+    // inserted as text, never as HTML (otherwise a deck named
+    // "<img onerror=...>" would run code for everyone browsing the catalogue).
+    const italic = (text) => {
+        const el = document.createElement('i');
+        el.textContent = text;
+        return el;
+    };
+    const underlined = document.createElement('u');
+    underlined.textContent = targetDeck.uploaderName ?? '';
+
+    deckCardCount.replaceChildren(' Card Count: ', ` ${targetDeck.cardCount}`);
+    deckName.replaceChildren(' Deck Name: ', targetDeck.name ?? '');
+    deckCreatorName.replaceChildren(' Deck Creator: ', ' ', underlined);
 
    // singlePracticebutton.onclick = () => {
     //    window.location.href = `singlePractice.html?id=${currentDeckId}`

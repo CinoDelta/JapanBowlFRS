@@ -106,7 +106,10 @@ function computeStandings(players) {
 // has had their buzz graded, or once the whole read + answer window has elapsed
 // (plus the time the client timer spends paused on each buzz attempt). Only
 // then is it safe to hand the answer out to clients.
-async function questionIsOver(match, question) {
+//
+// graceSeconds lets a caller accept a request slightly before the window
+// closes, to cover small clock differences between the browser and server.
+async function questionIsOver(match, question, graceSeconds = 0) {
     await expireStaleBuzzes(match.id, match.current_question_index);
     const { data: buzzes } = await supabase
         .from('buzzes')
@@ -133,7 +136,26 @@ async function questionIsOver(match, question) {
     const answerWindow = getMainTimerForAnswerType(question?.answerType, match.settings.timeLimitSeconds);
     const elapsed = (Date.now() - new Date(match.question_started_at).getTime()) / 1000;
 
-    return elapsed >= readTime + answerWindow;
+    return elapsed >= readTime + answerWindow - graceSeconds;
+}
+
+// How early (in seconds) a client may ask to advance on a timed-out question.
+const ADVANCE_GRACE_SECONDS = 2;
+
+// Pulls just the current question's card out of the deck, not the whole deck.
+async function fetchCurrentCard(match) {
+    const cardIndex = match.question_order?.[match.current_question_index];
+    if (cardIndex === undefined || cardIndex === null) return null;
+    const { data, error } = await supabase
+        .from('decks')
+        .select(`card:cards->${Number(cardIndex)}`)
+        .eq('id', match.deck_id)
+        .single();
+    if (error) {
+        console.error('card fetch error:', error);
+        return null;
+    }
+    return data?.card ?? null;
 }
 
 function assignTeams(players, settings) {
@@ -291,6 +313,21 @@ module.exports = async (req, res) => {
                     res.statusCode = 400;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify({ error: bonusPending ? 'bonus_in_progress' : 'someone_still_answering' }));
+                    return;
+                }
+
+                // Every player's browser asks to advance (so the match keeps
+                // going if the host drops out), which means any player could
+                // call this early to skip a question. Only allow it once the
+                // question is genuinely over.
+                const card = await fetchCurrentCard(match);
+                const question = card
+                    ? { question: card.question, answerType: card['answer-type'] }
+                    : null;
+                if (!(await questionIsOver(match, question, ADVANCE_GRACE_SECONDS))) {
+                    res.statusCode = 400;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify({ error: 'question_not_over' }));
                     return;
                 }
 

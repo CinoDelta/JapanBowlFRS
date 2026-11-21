@@ -33,9 +33,7 @@ async function renderAuthArea() {
 
     if (session) {
         authArea.href="";
-        authArea.innerHTML = `
-            ${session.user.email.split('@')[0]}
-        `;
+        authArea.textContent = session.user.email.split('@')[0];
         signOutButton.style.display = "block";
 
     } else {

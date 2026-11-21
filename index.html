@@ -130,6 +130,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="PracticeJS/supabaseclient.js"></script>
     
+    <script>
+    for (let i = 0; i < 9; i++) {
+      const p = document.createElement('span');
+      p.className = 'petal';
+      p.style.setProperty('--x', Math.random() * 100 + 'vw');
+      p.style.setProperty('--dur', 8 + Math.random() * 7 + 's');
+      p.style.setProperty('--delay', -Math.random() * 15 + 's');
+      document.body.appendChild(p);
+    }
+  </script>
 
     <script>
 
