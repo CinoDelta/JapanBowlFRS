@@ -128,7 +128,6 @@
     const earlySound = new Audio('sounds/gamesynthbeep01.mp3')
     const incorrectSound = new Audio('sounds/incorrectJapanese.mp3');
     const buzzerSound = new Audio('sounds/Buzzer.wav');
-    const beginSound = new Audio('sounds/beginSound.wav');
 
     // 頑張りましょう！ clips. One is picked at random each time.
     const ganbaruSounds = [
@@ -145,8 +144,30 @@
     }
 
     let soundBools = {
-        "getReady": true,
-        "begin": true
+        "getReady": true
+    }
+
+    // Plays the incorrect sound and ✕ stamp. Each wrong answer only ever
+    // plays it once (buzzKey), and two calls within 2.5 seconds count as one,
+    // so the last wrong answer and "nobody got it" right after it don't
+    // play the sound twice.
+    const incorrectBuzzesPlayed = new Set();
+    let lastIncorrectAt = 0;
+
+    function buzzKey(questionIndex, userId) {
+        return `${questionIndex}:${userId}`; // a player can only buzz once per question
+    }
+
+    function playIncorrect(key = null) {
+        if (key) {
+            if (incorrectBuzzesPlayed.has(key)) return;
+            incorrectBuzzesPlayed.add(key);
+        }
+        if (Date.now() - lastIncorrectAt < 2500) return;
+        lastIncorrectAt = Date.now();
+        incorrectSound.currentTime = 0;
+        incorrectSound.play().catch(() => {});
+        flashStamp(incorrectBatsu);
     }
 
     const soundsVol = 0.7;
@@ -361,11 +382,6 @@
             }
 
             if (timerPhase === 'reading') {
-                if (soundBools.begin === false) {
-                    soundBools.begin = true;
-                    beginSound.play();
-                }
-
                 const readRemaining = Math.max(0, readTimeTotal - revealProgressSeconds);
 
                 // Words with periods are read more slowly than regular words:
@@ -405,7 +421,6 @@
                 updateBuzzerVisibility();
 
             } else if (timerPhase === 'open') {
-                soundBools.begin = false;
                 soundBools.getReady = false; // so the next GET READY plays a ganbaru
                 mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
                 const display = Math.ceil(mainTimerRemaining);
@@ -492,8 +507,7 @@
 
         if (!soundPlayedForResult) {
             soundPlayedForResult = true;
-            incorrectSound.play();
-            flashStamp(incorrectBatsu);
+            playIncorrect(); // skipped if a wrong answer just played it
         }
 
         let answer = null;
@@ -802,11 +816,13 @@
         const resolvedBuzzes = (data.buzzes || []).filter((b) => b.result !== null);
         if (resolvedBuzzes.length > 0) {
             const latest = resolvedBuzzes[resolvedBuzzes.length - 1];
+            const latestKey = buzzKey(questionAtRequest, latest.user_id);
 
-            if (latest.result === 'incorrect' && !soundPlayedForResult) {
+            // Already-shown wrong answers are skipped, so a later re-check
+            // doesn't replay the sound and banner for the same answer.
+            if (latest.result === 'incorrect' && !soundPlayedForResult && !incorrectBuzzesPlayed.has(latestKey)) {
                 soundPlayedForResult = true;
-                incorrectSound.play();
-                flashStamp(incorrectBatsu);
+                playIncorrect(latestKey);
 
                 resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
                 resultBanner.style.display = 'block';
@@ -907,8 +923,7 @@
                 tryAdvance();
             }
         } else {
-            incorrectSound.play();
-            flashStamp(incorrectBatsu);
+            playIncorrect(buzzKey(currentQuestionIndex, myUserId));
             soundPlayedForBuzz = false;
             soundPlayedForResult = false;
             if (data.pointChange < 0) {
