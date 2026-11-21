@@ -1121,6 +1121,11 @@ a {
     letter-spacing: 1px;
 }
 
+#profileBody {
+    width: 80%;
+    margin-left: 10%;
+}
+
 .profile-status,
 .page-content-two p.profile-status {
     margin: 0.75rem 0 0;
