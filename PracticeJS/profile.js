@@ -14,8 +14,41 @@ const backToMine = document.getElementById('backToMine');
 const statsNote = document.getElementById('statsNote');
 const recentMatchesList = document.getElementById('recentMatches');
 const deckListEl = document.getElementById('deckList');
+const profileBadges = document.getElementById('profileBadges');
 
 const SEARCH_DELAY_MS = 300;
+
+// Badges shown to the right of a player's name. specials.json lists the user
+// ids for each group; developers come first if someone is in both.
+const BADGES = [
+    { group: 'Developers', src: 'images/developer.png', label: 'Developer' },
+    { group: 'Contributors', src: 'images/contributor.png', label: 'Contributor' },
+];
+
+// Loaded once and reused. If the file is missing, nobody gets a badge.
+const specialsReady = fetch('PracticeJS/specials.json')
+    .then((res) => (res.ok ? res.json() : {}))
+    .catch(() => ({}));
+
+let badgesFor = null; // which user the badges currently belong to
+
+async function renderBadges(userId) {
+    badgesFor = userId;
+    profileBadges.replaceChildren();
+    if (!userId) return;
+
+    const specials = await specialsReady;
+    if (badgesFor !== userId) return; // another profile was opened meanwhile
+
+    profileBadges.replaceChildren(...BADGES
+        .filter((badge) => Object.values(specials[badge.group] || {}).includes(userId))
+        .map((badge) => Object.assign(document.createElement('img'), {
+            src: badge.src,
+            alt: badge.label,
+            title: badge.label,
+            className: 'profile-badge',
+        })));
+}
 
 const OUTCOME_LABELS = {
     win: { symbol: '◯', text: 'Win', className: 'outcome-win' },
@@ -47,6 +80,7 @@ async function loadProfile(userId) {
     profileBody.style.display = 'none';
     profileStatus.style.display = 'block';
     profileStatus.textContent = 'Loading...';
+    renderBadges(null);
 
     const session = await getSession();
     myUserId = session?.user.id ?? null;
@@ -94,6 +128,7 @@ function renderProfile(profile, isMine) {
     const { user, decks, matches, recentMatches, statsAvailable } = profile;
 
     profileName.textContent = isMine ? `${user.username} (you)` : user.username;
+    renderBadges(user.id);
     profileSince.textContent = user.memberSince ? `Member since ${formatDate(user.memberSince)}` : '';
     document.title = `${user.username} | Japan Bowl FRS`;
 

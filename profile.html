@@ -51,7 +51,10 @@
     <div class="profile-title-row">
       <img class="profile-avatar" src="images/person.png" alt="">
       <div class="profile-title">
-        <h2 id="profileName" class="profile-heading">Your Profile</h2>
+        <div class="profile-name-row">
+          <h2 id="profileName" class="profile-heading">Your Profile</h2>
+          <span id="profileBadges" class="profile-badges"></span>
+        </div>
         <p id="profileSince" class="profile-since"></p>
       </div>
     </div>
@@ -83,6 +86,7 @@
         <div class="stat-tile"><span class="stat-value" id="statTies">0</span><span class="stat-label">△ Ties</span></div>
         <div class="stat-tile"><span class="stat-value" id="statWinRate">—</span><span class="stat-label">Win Rate</span></div>
         <div class="stat-tile"><span class="stat-value" id="statAccuracy">—</span><span class="stat-label">Buzz Accuracy</span></div>
+        <div class="stat-tile" style="display: none;"><span class="stat-value" style="display:none;" id="statAccuracy">—</span><span class="stat-label">Buzz Accuracy</span></div>
         <div class="stat-tile"><span class="stat-value" id="statPoints">0</span><span class="stat-label">Total Points</span></div>
         <div class="stat-tile"><span class="stat-value" id="statBest">0</span><span class="stat-label">Best Score</span></div>
         <div class="stat-tile"><span class="stat-value" id="statBonus">0</span><span class="stat-label">Bonus Questions Correct</span></div>
