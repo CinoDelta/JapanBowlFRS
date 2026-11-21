@@ -111,9 +111,42 @@ body {
     }
 }
 
+
+.title-banner {
+  animation: dropIn 0.9s cubic-bezier(.2, .8, .2, 1) both;
+}
 .page-content,
 .info-box {
     animation: riseIn 0.6s ease-out both;
+}
+
+.petal {
+  position: fixed;
+  top: -20px;
+  left: var(--x);
+  width: 12px;
+  height: 9px;
+  background: var(--cherry);
+  border-radius: 12px 0 12px 0;   /* leaf/petal shape */
+  opacity: 0.8;
+  pointer-events: none;           /* clicks go through petals */
+  z-index: 0;
+  animation: fall var(--dur) linear var(--delay) infinite;
+}
+
+@keyframes fall {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  50%  { transform: translate(60px, 50vh) rotate(180deg); }
+  100% { transform: translate(-20px, 105vh) rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .petal { display: none; }
 }
 
 h1 {
@@ -325,15 +358,17 @@ div {
     
 }
 
-
+/* Header card: same plum glass as the title banner, cherry trim */
 .page-content-two {
-    width: 100%;
-    max-width: 10000rem;
+    background: var(--infoBackground);
+    border: 0.3rem solid var(--darkerCherry);
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(40, 3, 25, .7);
+    padding: 1rem 1.5rem 1.5rem;
     text-align: center;
-    background-color: #f0ee82;
-    border: .2rem solid #ffffff;
-    border-radius: .6rem;
+    width: 90%;
 }
+
 
 .deck-header-row {
     display: grid;
@@ -370,7 +405,7 @@ div {
 
 #deckSearchHeader{
     margin: 0;
-    color: rgb(255, 250, 192);
+    color: rgb(247, 207, 245);
     font-size: 2.25rem;
     font-style: italic;
     border-radius: .6rem;
@@ -380,12 +415,12 @@ div {
 }
 
 #deckSearch {
-    background-color: rgb(64, 65, 14);
+    background-color: var(--lighterCherry);
     width: 75%;
     height: 3rem;
     border: .2rem solid rgb(255, 255, 255);
     border-radius: .6rem;
-    color: #acf4cb;     
+    color: #5970f4;     
     font-size: 1.2rem;    
     font-style: normal;  
     font-weight: bold;    
@@ -397,7 +432,7 @@ div {
 
 
 input::placeholder {
-  color: #acf4b7;     
+  color: #2626e0;     
   font-size: auto;    
   font-style: italic;  
   font-weight: bold;    
@@ -494,13 +529,12 @@ input::placeholder {
     border-color: var(--cherry);
 }
 
-/* The selected deck: bright cherry card. The gradient is needed because
-   browsers ignore a plain background-color on a selected option. */
 #deckListOne option:checked {
     background: linear-gradient(135deg, var(--cherry), var(--darkerCherry));
     border: 2px solid white;
     color: var(--darkestCherry);
 }
+
 
 .deckList button {
     width: 90%;
@@ -543,29 +577,58 @@ input::placeholder {
 
 }
 
+
+
 #thisDeckName {
 
+    padding: 0.9rem .5rem;
+    border: 2px dashed rgba(159, 133, 227, 0.5);
+    border-radius: 12px;
+    background-color: rgba(13, 6, 62, 0.8);
     color: var(--lighterCherry);
-    background-color: rgb(33, 14, 56);
-    border: .1rem solid rgb(255, 255, 255);
-    border-radius: .6rem;
-    -webkit-text-stroke: 1px rgb(242, 178, 232);
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 2rem;
+    font-weight: bold;
+    text-align: center;
+    white-space: normal;      /* let long deck names 8wrap */
+    line-height: 1.25;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.895);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 #thisDeckCreator {
-    color: var(--lighterBatsuBlue);
-    background-color: rgb(24, 4, 47);
-    border: .1rem solid rgb(255, 255, 255);
-    border-radius: .6rem;
-    -webkit-text-stroke: 1px rgb(207, 178, 242);
+    padding: 0.9rem .5rem;
+    border: 2px dashed rgba(159, 133, 227, 0.5);
+    border-radius: 12px;
+    background-color: rgba(13, 6, 62, 0.8);
+    color: var(--lighterCherry);
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 2rem;
+    font-weight: bold;
+    text-align: center;
+    white-space: normal;      /* let long deck names 8wrap */
+    line-height: 1.25;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.895);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 #thisDeckCardCount {
+    padding: 0.9rem .5rem;
+    border: 2px dashed rgba(159, 133, 227, 0.5);
+    border-radius: 12px;
+    background-color: rgba(13, 6, 62, 0.8);
     color: var(--lighterCherry);
-    background-color: rgb(44, 24, 66);
-    border: .1rem solid rgb(255, 255, 255);
-    border-radius: .6rem;
-    -webkit-text-stroke: 1px rgb(242, 178, 232);
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 2rem;
+    font-weight: bold;
+    text-align: center;
+    white-space: normal;      /* let long deck names 8wrap */
+    line-height: 1.25;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.895);
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 #game-area {

@@ -153,9 +153,16 @@ async function displayDeckInfo() {
     const underlined = document.createElement('u');
     underlined.textContent = targetDeck.uploaderName ?? '';
 
-    deckCardCount.replaceChildren(' Card Count: ', ` ${targetDeck.cardCount}`);
-    deckName.replaceChildren(' Deck Name: ', targetDeck.name ?? '');
-    deckCreatorName.replaceChildren(' Deck Creator: ', ' ', underlined);
+    // Each info line starts with an icon <img> from deckCatalogue.html. Keep
+    // that icon and only swap out the text after it.
+    const setInfo = (el, ...parts) => {
+        const icon = el.querySelector('img');
+        el.replaceChildren(...(icon ? [icon] : []), ...parts);
+    };
+
+    setInfo(deckCardCount, ' Card Count: ', ` ${targetDeck.cardCount}`);
+    setInfo(deckName, ' Deck Name: ', targetDeck.name ?? '');
+    setInfo(deckCreatorName, ' Deck Creator: ', ' ', underlined);
 
    // singlePracticebutton.onclick = () => {
     //    window.location.href = `singlePractice.html?id=${currentDeckId}`
