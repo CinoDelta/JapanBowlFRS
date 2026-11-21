@@ -16,7 +16,6 @@ function generateMatchCode() {
 
 const DEFAULT_SETTINGS = {
     timeLimitSeconds: 30,
-    earlyThresholdSeconds: 3,
     teamsEnabled: false,
     numTeams: null,
     questionCount: null,
@@ -25,18 +24,17 @@ const DEFAULT_SETTINGS = {
 const isIntInRange = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
 // Builds a clean settings object from what the client sent, or returns null
-// if anything is out of range. Unknown keys are dropped.
+// if anything is out of range. Unknown keys (including the old, unused
+// earlyThresholdSeconds) are dropped.
 function validateSettings(input) {
     if (!input || typeof input !== 'object') return null;
     const s = {
         timeLimitSeconds: input.timeLimitSeconds,
-        earlyThresholdSeconds: input.earlyThresholdSeconds,
         teamsEnabled: input.teamsEnabled === true,
         numTeams: input.teamsEnabled === true ? input.numTeams : null,
         questionCount: input.questionCount ?? null,
     };
     if (!isIntInRange(s.timeLimitSeconds, 1, 600)) return null;
-    if (!isIntInRange(s.earlyThresholdSeconds, 0, 120)) return null;
     if (s.teamsEnabled && !isIntInRange(s.numTeams, 1, 100)) return null;
     if (s.questionCount !== null && !isIntInRange(s.questionCount, 1, 10000)) return null;
     return s;

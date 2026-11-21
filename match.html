@@ -173,14 +173,19 @@
     let timerPhase = 'getready';
     let timerInterval = null;
 
+    // Every timer is worked out from the clock, not by counting ticks, so a
+    // tab the browser slowed down (hidden, phone screen locked) catches up
+    // the moment it ticks again instead of falling behind everyone else.
+    let currentQuestionText = '';
     let readTimeTotal = 0;
-    let questionStartedAt = 0;
-    let revealProgressSeconds = 0;
+    let questionStartedAt = 0;      // server time the reading starts (ms)
+    let isRereading = false;        // true after an early wrong answer restarted it
+    let pausedSeconds = 0;          // time the clock stood still for buzzes
+    let pauseStartedAt = null;      // server time the current buzz paused it
 
     let mainTimerTotal = 30;
-    let mainTimerRemaining = 30;
 
-    let answerTimerRemaining = 10;
+    let answerEndsAt = 0;           // local time the answerer's 10s runs out
     let answerAutoSubmitTimeout = null;
 
     let myBuzzUsed = false;
@@ -329,87 +334,104 @@
 
 
 
-    function startTimer(data={}) {
-        stopTimer();
+    function serverNow() {
+        return Date.now() + clockOffset;
+    }
 
-        timerInterval = setInterval(() => {
-            const elapsed = (Date.now() + clockOffset - questionStartedAt) / 1000;
+    // Seconds of the question that have played out: the time since it
+    // started, minus the time it stood still while people answered.
+    function questionElapsed() {
+        const pausedSoFar = pauseStartedAt === null ? 0 : (serverNow() - pauseStartedAt) / 1000;
+        return (serverNow() - questionStartedAt) / 1000 - pausedSeconds - pausedSoFar;
+    }
 
-            // FIX #1: If elapsed is negative, the question hasn't actually
-            // started yet — the server set question_started_at to a few
-            // seconds in the future to let everyone load in. Show a
-            // countdown so players know it's about to begin.
-            if (elapsed < 0) {
+    function phaseFromClock() {
+        const elapsed = questionElapsed();
+        if (elapsed < 0) return 'getready';
+        if (elapsed < readTimeTotal) return 'reading';
+        return 'open';
+    }
+
+    // The server's start time for the current question. A different time for
+    // the same question means an early wrong answer restarted the reading,
+    // and that restart is the question's new beginning for everyone.
+    function applyQuestionStart(isoTime) {
+        if (!isoTime) return;
+        const startedAt = new Date(isoTime).getTime();
+        if (startedAt === questionStartedAt) return;
+        const isRestart = questionStartedAt !== 0;
+        questionStartedAt = startedAt;
+        pausedSeconds = 0;
+        pauseStartedAt = null;
+        if (isRestart) isRereading = true;
+    }
+
+    // One tick of the match clock. Safe to call any time; it works everything
+    // out from the clock.
+    function tick() {
+        // Result screens, the bonus and the end of the match own the timer text.
+        if (questionOver) return;
+
+        if (timerPhase === 'answering') {
+            // Once the answer is sent there is nothing left to count down.
+            if (answerSubmitted) return;
+            const left = Math.max(0, Math.ceil((answerEndsAt - Date.now()) / 1000));
+            timerEl.style.color = '#ff6b6b';
+            timerEl.textContent = `${left}s TO ANSWER`;
+            return;
+        }
+
+        timerPhase = phaseFromClock();
+        const elapsed = questionElapsed();
+
+        if (timerPhase === 'getready') {
+            timerEl.style.color = '#ffd54f';
+            if (isRereading) {
+                // An early wrong answer: everyone waits, then it starts over.
+                timerEl.textContent = `RE-READING QUESTION IN ${Math.ceil(-elapsed)}...`;
+                setLabeledText(questionEl, 'QUESTION:', '');
+            } else {
+                // The server sets the start a few seconds ahead so every
+                // player's page is ready before the reading begins.
                 if (soundBools.getReady === false) {
                     soundBools.getReady = true;
                     playGanbaru();
                 }
-                timerPhase = 'getready';
-                timerEl.style.color = '#ffd54f';
                 timerEl.textContent = `GET READY! ${Math.ceil(-elapsed)}`;
                 questionEl.textContent = '頑張って！';
-                updateBuzzerVisibility();
-                return;
             }
+        } else if (timerPhase === 'reading') {
+            // English appears a word at a time and Japanese a character at a
+            // time (see PracticeJS/readTiming.js for the timings).
+            setLabeledText(questionEl, 'QUESTION:', ReadTiming.getRevealedText(currentQuestionText, elapsed));
+            timerEl.style.color = 'red';
+            timerEl.textContent = isRereading ? 'RE-READING QUESTION...' : 'QUESTION BEING READ OUT...';
+        } else {
+            soundBools.getReady = false; // so the next GET READY plays a ganbaru
+            setLabeledText(questionEl, 'QUESTION:', currentQuestionText || '—');
+            const left = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
+            const display = Math.ceil(left);
+            timerEl.style.color = '#ffd54f';
+            timerEl.textContent = `${display} SECOND${display === 1 ? '' : 'S'} LEFT`;
+            if (left <= 0) revealAnswerAndAdvance();
+        }
 
-            if (timerPhase === 'getready') {
-                // Transition: the "get ready" period just ended
-                timerPhase = 'reading';
-            }
+        // The buzzer follows the phase every tick, including for a page that
+        // loaded straight into the middle of a question.
+        updateBuzzerVisibility();
+    }
 
-            if (timerPhase === 'reading') {
-                const readRemaining = Math.max(0, readTimeTotal - revealProgressSeconds);
-
-                // English appears a word at a time and Japanese a character
-                // at a time (see PracticeJS/readTiming.js for the timings).
-                const question = data.question?.question ?? '—';
-
-                revealProgressSeconds = Math.min(readTimeTotal, revealProgressSeconds + 0.25);
-
-                const questionToShow = ReadTiming.getRevealedText(question, revealProgressSeconds);
-                setLabeledText(questionEl, 'QUESTION:', questionToShow);
-
-                timerEl.textContent = 'QUESTION BEING READ OUT...';
-                timerEl.style.color = 'red';
-
-                if (readRemaining <= 0.25) {
-                    timerPhase = 'open';
-                    mainTimerRemaining = mainTimerTotal;
-                }
-
-                // The reading phase is when early buzzes happen, so the button
-                // has to be put up here every tick — not only on the
-                // get-ready -> reading transition, which a client that loaded
-                // straight into the reading phase never sees.
-                updateBuzzerVisibility();
-
-            } else if (timerPhase === 'open') {
-                soundBools.getReady = false; // so the next GET READY plays a ganbaru
-                mainTimerRemaining = Math.max(0, mainTimerRemaining - 0.25);
-                const display = Math.ceil(mainTimerRemaining);
-
-                timerEl.style.color = '#ffd54f';
-                timerEl.textContent = `${display} SECOND${display === 1 ? '' : 'S'} LEFT`;
-
-                updateBuzzerVisibility();
-
-                if (mainTimerRemaining <= 0) {
-                    revealAnswerAndAdvance();
-                }
-
-            } else if (timerPhase === 'answering') {
-                answerTimerRemaining = Math.max(0, answerTimerRemaining - 0.25);
-                const display = Math.ceil(answerTimerRemaining);
-
-                timerEl.style.color = '#ff6b6b';
-                timerEl.textContent = `${display}s TO ANSWER`;
-            }
-        }, 250);
+    function startTimer() {
+        stopTimer();
+        tick();
+        timerInterval = setInterval(tick, 250);
     }
 
     function enterAnswerPhase() {
+        // The question's clock stands still while someone answers.
+        if (pauseStartedAt === null && timerPhase !== 'getready') pauseStartedAt = serverNow();
         timerPhase = 'answering';
-        answerTimerRemaining = 10;
+        answerEndsAt = Date.now() + 10000;
         updateBuzzerVisibility();
 
         clearTimeout(answerAutoSubmitTimeout);
@@ -435,19 +457,18 @@
         // An early buzz hides the question; if it was a wrong early buzz, the
         // judge re-reads from the start for the remaining players.
         questionEl.style.display = 'block';
-        questionEl.innerHTML = 'QUESTION:<br>';
         resultBanner.style.display = 'none';
 
-        if (revealProgressSeconds === 0 && readTimeTotal > 0) {
-            timerPhase = 'reading';
-        } else if (revealProgressSeconds < readTimeTotal) {
-            timerPhase = 'reading';
-        } else {
-            timerPhase = 'open';
-            mainTimerRemaining = Math.max(0, mainTimerRemaining);
+        // Add the time the clock stood still. (If the answer was an early
+        // wrong one, the server restarted the question instead and
+        // applyQuestionStart() has already cleared the pause.)
+        if (pauseStartedAt !== null) {
+            pausedSeconds += (serverNow() - pauseStartedAt) / 1000;
+            pauseStartedAt = null;
         }
 
-        updateBuzzerVisibility();
+        timerPhase = phaseFromClock();
+        tick(); // show the right phase straight away, not on the next tick
     }
 
     // Nobody got the question, so show the correct answer for 5 seconds and
@@ -504,12 +525,10 @@
     }
 
     // ---- PERIODIC TIMER SYNC ----
-    // FIX #2: Every 15 seconds, re-fetch the server's authoritative
-    // question_started_at and re-anchor the local clock to it. This
-    // corrects any drift caused by JS thread pauses, tab throttling,
-    // or brief network hiccups — without disrupting the user like an
-    // alert() would.
-    setInterval(async () => {
+    // Every 15 seconds, re-fetch the server's start time for the question.
+    // The timers already follow the clock; this catches a restart (an early
+    // wrong answer) whose live update never arrived.
+    async function refreshQuestionStart() {
         if (currentQuestionIndex === null) return;
         try {
             const res = await fetch(`/api/match?code=${matchCode}`);
@@ -518,13 +537,15 @@
                 return;
             }
             const data = await res.json();
-            if (data.ok && data.questionStartedAt) {
-                questionStartedAt = new Date(data.questionStartedAt).getTime();
+            if (data.ok && data.currentQuestionIndex === currentQuestionIndex) {
+                applyQuestionStart(data.questionStartedAt);
             }
         } catch (e) {
             console.error('timer sync failed:', e); // transient; try again in 15s
         }
-    }, 15000);
+    }
+
+    setInterval(refreshQuestionStart, 15000);
 
     // ---- QUESTION LOADING ----
 
@@ -629,27 +650,20 @@
             currentQuestionIndex = data.currentQuestionIndex;
             resetQuestionUI();
 
-            readTimeTotal = getQuestionReadDuration(data.question?.question ?? '');
+            currentQuestionText = data.question?.question ?? '—';
+            readTimeTotal = getQuestionReadDuration(currentQuestionText);
             mainTimerTotal = getMainTimerForAnswerType(data.question?.answerType, data.timeLimitSeconds);
-            mainTimerRemaining = mainTimerTotal;
-            questionStartedAt = new Date(data.questionStartedAt).getTime();
-            revealProgressSeconds = 0;
+            questionStartedAt = 0; // a new question, so its start isn't a restart
+            isRereading = false;
+            applyQuestionStart(data.questionStartedAt);
 
-            // If loading mid-question (e.g. page refresh), figure out phase.
-            const elapsed = (Date.now() + clockOffset - questionStartedAt) / 1000;
-            if (elapsed < 0) {
-                timerPhase = 'getready';
-            } else if (elapsed < readTimeTotal) {
-                timerPhase = 'reading';
-                revealProgressSeconds = Math.min(readTimeTotal, Math.max(0, elapsed));
-            } else {
-                timerPhase = 'open';
-                revealProgressSeconds = readTimeTotal;
-                setLabeledText(questionEl, 'QUESTION:', data.question?.question ?? '—');
-                mainTimerRemaining = Math.max(0, mainTimerTotal - (elapsed - readTimeTotal));
-            }
-
-            startTimer(data);
+            // tick() works out the phase from the clock, which also covers a
+            // page that loads mid-question (e.g. a refresh).
+            startTimer();
+        } else {
+            // Same question: the start time moves when an early wrong answer
+            // restarts the reading for everyone.
+            applyQuestionStart(data.questionStartedAt);
         }
 
         categoryEl.textContent = `CATEGORY: ${data.question?.category ?? '—'}`;
@@ -707,7 +721,10 @@
             questionOver = true;
             answerInput.style.display = 'none';
             questionEl.style.display = 'block'; // an early buzz may have hidden it
+            setLabeledText(questionEl, 'QUESTION:', currentQuestionText);
             timerEl.style.display = 'block';
+            timerEl.style.color = '#ffd54f';
+            timerEl.textContent = 'ANSWERED!'; // not a leftover answer countdown
             updateBuzzerVisibility();
             resultBanner.textContent = `${correctBuzz.displayName} says "${correctBuzz.guess}" — CORRECT!`;
             resultBanner.style.display = 'block';
@@ -791,6 +808,11 @@
                 resultBanner.textContent = `${latest.displayName} says "${latest.guess}" — INCORRECT!`;
                 resultBanner.style.display = 'block';
 
+                // An early wrong answer restarts the question for everyone.
+                // Fetch the new start now rather than waiting for the live
+                // update, so the re-read lines up on every screen.
+                if (latest.is_early) refreshQuestionStart();
+
                 setTimeout(() => {
                     soundPlayedForBuzz = false;
                     soundPlayedForResult = false;
@@ -815,6 +837,10 @@
                 }, 2000);
                 return;
             }
+
+            // That wrong answer is still on screen (its 2 seconds aren't up),
+            // so leave the banner alone; the timer above moves things on.
+            if (latest.result === 'incorrect' && soundPlayedForResult) return;
         }
 
         // --- Everyone has buzzed and nobody got it ---
@@ -837,8 +863,10 @@
 
         const guess = answerInput.value.trim() || '(no answer)';
         answerInput.disabled = true;
-        answerSubmitted = true;
+        answerSubmitted = true; // also stops the answer countdown in tick()
         clearTimeout(answerAutoSubmitTimeout);
+        timerEl.style.color = '#ffd54f';
+        timerEl.textContent = 'ANSWER LOCKED IN!';
 
         const { data: { session } } = await supabaseClient.auth.getSession();
 
@@ -890,14 +918,9 @@
             playIncorrect(buzzKey(currentQuestionIndex, myUserId));
             soundPlayedForBuzz = false;
             soundPlayedForResult = false;
-            if (data.pointChange < 0) {
-                questionStartedAt = Date.now();
-                revealProgressSeconds = 0;
-                questionEl.innerHTML = 'QUESTION:<br>';
-                timerEl.textContent = 'RE-READING QUESTION...';
-                timerEl.style.color = '#ffd54f';
-                await delay(500);
-            }
+            // An early wrong answer restarts the question for everyone; the
+            // server sends the new start time with the result.
+            applyQuestionStart(data.questionStartedAt);
             await delay(2000);
             resumeOpenPhase(); // this also sets iAmAnswering = false
             if (data.allWrong) revealAnswerAndAdvance(); // everyone has had their go and nobody got it

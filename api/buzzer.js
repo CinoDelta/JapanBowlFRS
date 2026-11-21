@@ -105,6 +105,9 @@ function isCorrectAnswer(guess, card) {
 
 const BONUS_POINTS = 10;
 const BONUS_ANSWER_SECONDS = 15;
+// After an early wrong answer, everyone sees the result for this long before
+// the question is re-read from the start.
+const REREAD_LEAD_SECONDS = 3;
 // Everyone sees "BONUS QUESTION FOR TEAM N!" for this long before the bonus starts.
 const BONUS_LEAD_SECONDS = 3;
 // Accept submissions this long after the deadline, to cover network lag.
@@ -581,14 +584,23 @@ module.exports = async (req, res) => {
             }
 
             // If a player buzzes early and is wrong, the question is re-read from
-            // the start for the remaining players. Reset the authoritative match
-            // clock so all clients line up on the same restart point.
+            // the start for everyone. The restart point becomes the question's
+            // new beginning: early buzzes, the answer window and "is the
+            // question over" are all measured from it. It is set a few seconds
+            // ahead so every screen can show the wrong answer first, and buzzes
+            // before it are turned away as question_not_started.
+            let questionStartedAt = null;
             if (result === 'incorrect' && buzz.is_early) {
-                await supabase
+                questionStartedAt = new Date(Date.now() + REREAD_LEAD_SECONDS * 1000).toISOString();
+                const { error: restartError } = await supabase
                     .from('matches')
-                    .update({ question_started_at: new Date(Date.now()).toISOString() })
+                    .update({ question_started_at: questionStartedAt })
                     .eq('id', match.id)
                     .eq('current_question_index', questionIndex);
+                if (restartError) {
+                    console.error('re-read restart error:', restartError);
+                    questionStartedAt = null;
+                }
             }
 
             // The score write and the "did everyone miss?" check run together.
@@ -619,7 +631,7 @@ module.exports = async (req, res) => {
 
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: hasBonus, allWrong}));
+            res.end(JSON.stringify({ ok: true, result, pointChange, bonusQuestion: hasBonus, allWrong, questionStartedAt }));
             return;
         }
 
