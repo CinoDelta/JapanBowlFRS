@@ -15,11 +15,6 @@
     <img class="title-banner" src="images/TitleBanner.png" alt="Japan Bowl FRS title banner">
   </header>
 
-  <div id="bonus-slam" aria-hidden="true">
-    <span class="bonus-slam-title">BONUS!</span>
-    <span class="bonus-slam-team" id="bonus-slam-team"></span>
-  </div>
-
   <div class="game-box">
 
     <div id="teams-panel">
@@ -86,8 +81,7 @@
     const resultBanner = document.getElementById('result-banner');
     const correctMaru = document.getElementById('correctImage');
     const incorrectBatsu = document.getElementById('wrongImage');
-    const bonusSlam = document.getElementById('bonus-slam');
-    const bonusSlamTeam = document.getElementById('bonus-slam-team');
+    const gamePanel = document.querySelector('.game-panel');
 
     // Restarts a CSS animation, even if its class is still on the element.
     function playAnim(el, className) {
@@ -107,21 +101,6 @@
         playAnim(stamp, 'flashing');
         stampTimer = setTimeout(() => stamp.classList.remove('flashing'), 2000);
     }
-
-    // "BONUS!" slams onto the screen. The server shows the bonus banner for
-    // 3 seconds before the bonus starts, and the slam is over in 2.4, so it
-    // never covers the bonus question itself.
-    function slamBonus(teamNumber) {
-        bonusSlamTeam.textContent = teamNumber === myTeamNumber
-            ? `YOUR TEAM! (TEAM ${teamNumber})`
-            : `FOR TEAM ${teamNumber}`;
-        playAnim(bonusSlam, 'slamming');
-    }
-
-    bonusSlam.addEventListener('animationend', (event) => {
-        // The title and team line inside finish first; wait for the fade-out.
-        if (event.animationName === 'bonusFadeOut') bonusSlam.classList.remove('slamming');
-    });
 
     // --- Sounds ---
     const correctSound = new Audio('sounds/correctJapanese.mp3');
@@ -575,6 +554,7 @@
         bonusPhase = null;
         bonusOnMyTeam = false;
         bonusSubmitted = false;
+        gamePanel.classList.remove('bonus-active');
         timerPhase = 'getready';
         buzzerBtn.disabled = false;
         answerInput.style.display = 'none';
@@ -998,8 +978,8 @@
             updateBuzzerVisibility();
 
             categoryEl.textContent = `BONUS QUESTION FOR TEAM ${bonus.teamNumber}!`;
-            // Someone who loads the page after the bonus ended doesn't need it.
-            if (!bonus.over) slamBonus(bonus.teamNumber);
+            // Gold border while the bonus runs; finishBonus() takes it off.
+            if (!bonus.over) gamePanel.classList.add('bonus-active');
             setLabeledText(questionEl, 'BONUS:', bonus.question);
             questionEl.style.display = 'block';
             if (bonus.answerType) {
@@ -1114,9 +1094,12 @@
         answerInput.style.display = 'none';
         timerEl.style.display = 'block';
 
+        gamePanel.classList.remove('bonus-active'); // the bonus is over
         flashStamp(bonus.result === 'correct' ? correctMaru : incorrectBatsu);
 
         if (bonus.result === 'correct') {
+            correctSound.currentTime = 0;
+            correctSound.play().catch(() => {});
             timerEl.style.color = '#ffd54f';
             timerEl.textContent = 'BONUS CORRECT!';
             resultBanner.textContent = `${bonus.displayName} says "${bonus.guess}" — CORRECT! +${bonus.points} for TEAM ${bonus.teamNumber}`;

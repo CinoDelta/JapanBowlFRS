@@ -316,65 +316,16 @@ h3 {
     }
 }
 
-/* ---------- BONUS SLAM-IN ---------- */
-
-/* Full-screen layer that "BONUS!" lands on. Hidden until .slamming is added. */
-#bonus-slam {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    margin: 0;
-    pointer-events: none;          /* never blocks typing or clicking */
-    background: rgba(40, 3, 25, 0.55);
+/* ---------- BONUS QUESTION ----------
+   The game panel's border glows gold while a bonus question is running.
+   match.html adds .bonus-active when the bonus starts and removes it when
+   the bonus is over. */
+.game-panel.bonus-active {
+    border-color: #ffd54f;
+    box-shadow: 0 0 24px 6px rgba(255, 213, 79, 0.75), 0 6px 18px rgba(40, 3, 25, .7);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-#bonus-slam.slamming {
-    display: flex;
-    animation: bonusFadeOut 2.4s ease-in forwards;
-}
-
-.bonus-slam-title {
-    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
-    font-size: clamp(4rem, 18vw, 10rem);
-    font-weight: 900;
-    color: #ffd54f;
-    -webkit-text-stroke: 3px var(--darkestCherry);
-    text-shadow: 0 8px 0 var(--darkestCherry);
-    animation: bonusSlam 0.45s ease-out both;
-}
-
-.bonus-slam-team {
-    padding: 0.3rem 1.2rem;
-    border: .2rem dashed white;
-    border-radius: 999px;
-    background: var(--darkestCherry);
-    color: var(--lighterCherry);
-    font-size: clamp(1.2rem, 5vw, 2.25rem);
-    font-weight: bold;
-    letter-spacing: 2px;
-    animation: bonusTeamIn 0.4s ease-out 0.45s both;
-}
-
-/* Drops in huge and tilted, and shrinks straight down to its resting size. */
-@keyframes bonusSlam {
-    0%   { transform: scale(4) rotate(-14deg); opacity: 0; }
-    100% { transform: scale(1) rotate(-5deg); opacity: 1; }
-}
-
-@keyframes bonusTeamIn {
-    from { transform: translateY(20px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes bonusFadeOut {
-    0%, 80% { opacity: 1; }
-    100%    { opacity: 0; }
-}
 div {
     margin: 0.5rem 0;
     font-size: 2rem;
