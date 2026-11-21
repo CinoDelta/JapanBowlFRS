@@ -1027,15 +1027,70 @@ a {
     margin-right: 5%;
 }
 
+/* Game-show buzzer: the same dark cherry text and light maru-red background
+   as before, with diagonal stripes, a dashed inner ring like the rest of the
+   site, and a raised edge that presses down when you buzz. */
 #buzzer-btn {
-    margin-left: 5%;
-    margin-right: 5%;
-    text-align: center;
+    display: block;
     width: 90%;
-    font-size: 2rem;
+    margin: 0.5rem 5% 1rem;        /* bottom room for the raised edge */
+    padding: 1rem 1.5rem 0.8rem;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
     font-style: italic;
+    letter-spacing: 4px;
+    text-align: center;
     color: var(--darkestCherry);
-    background-color: var(--lighterMaruRedTransparenct);
+    background:
+        repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.18) 0 14px, transparent 14px 28px),
+        var(--lighterMaruRedTransparenct);
+    border: 0.3rem solid var(--darkestCherry);
+    border-radius: 999px;
+    outline: 0.2rem dashed rgba(255, 255, 255, 0.8);
+    outline-offset: -0.75rem;       /* dashed ring drawn inside the border */
+    box-shadow: 0 8px 0 var(--darkestCherry), 0 12px 18px rgba(40, 3, 25, 0.35);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.2s ease;
+}
+
+#buzzer-btn .buzz-hint {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.85rem;
+    font-weight: bold;
+    font-style: normal;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+#buzzer-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 0 var(--darkestCherry), 0 14px 20px rgba(40, 3, 25, 0.35);
+}
+
+/* Pressed (or the moment a buzz is sent): sinks onto its edge */
+#buzzer-btn:active,
+#buzzer-btn:disabled {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 var(--darkestCherry), 0 4px 8px rgba(40, 3, 25, 0.3);
+}
+
+#buzzer-btn:focus-visible {
+    outline-style: solid;
+    outline-color: white;
+}
+
+/* Phones and tablets have no Space bar to press */
+@media (hover: none) {
+    #buzzer-btn .buzz-hint { display: none; }
+}
+
+@media (max-width: 700px) {
+    #buzzer-btn {
+        font-size: 1.8rem;
+        letter-spacing: 2px;
+    }
 }
 
 

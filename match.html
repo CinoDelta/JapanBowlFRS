@@ -55,7 +55,7 @@
       <div id="answer-area">
         <p id="result-banner" style="display:none; font-size: 2rem;"></p>
         <input id="answer-input" type="text" style="display:none;" placeholder="TYPE YOUR ANSWER HERE!">
-        <button id="buzzer-btn">BUZZ!</button>
+        <button id="buzzer-btn">BUZZ!<span class="buzz-hint">or press Space</span></button>
       </div>
     </div>
 
@@ -368,17 +368,6 @@
 
                 const questionToShow = ReadTiming.getRevealedText(question, revealProgressSeconds);
                 setLabeledText(questionEl, 'QUESTION:', questionToShow);
-                let cumulativeRevealTime = 0;
-                let wordsShown = 0;
-                for (const word of questionWords) {
-                    const wordDuration = getWordReadDuration(word);
-                    if (revealProgressSeconds >= cumulativeRevealTime + wordDuration) {
-                        cumulativeRevealTime += wordDuration;
-                        wordsShown += 1;
-                    } else {
-                        break;
-                    }
-                }
 
                 timerEl.textContent = 'QUESTION BEING READ OUT...';
                 timerEl.style.color = 'red';
