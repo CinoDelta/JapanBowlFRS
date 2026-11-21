@@ -32,7 +32,7 @@ async function renderAuthArea() {
     const { data: { session } } = await supabaseClient.auth.getSession();
 
     if (session) {
-        authArea.href="";
+        authArea.href = "profile.html"; // your name in the nav opens your profile
         authArea.textContent = session.user.email.split('@')[0];
         signOutButton.style.display = "block";
 
